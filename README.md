@@ -230,6 +230,45 @@ npm run db:generate
    npx prisma studio
    ```
 
+   3.1 Prisma Studio 使用方法（方案1）
+   - 前置条件
+     - 确认数据库为本地 SQLite，.env 中的 DATABASE_URL 指向文件：
+       ```env
+       # 示例（请根据实际情况确认）
+       DATABASE_URL="file:./prisma/dev.db"
+       ```
+     - 建议先备份数据库再做修改：
+       ```bash
+       mkdir -p prisma/backup
+       cp prisma/dev.db prisma/backup/dev-$(date +%Y%m%d%H%M).db
+       ```
+   - 启动与访问
+     - 在项目根目录运行：
+       ```bash
+       npx prisma studio
+       ```
+     - 浏览器访问提示的地址（默认 http://localhost:5555），在左侧选择目标表进行增删改查。
+     - 若端口被占用，可指定端口：
+       ```bash
+       npx prisma studio --port 5556
+       ```
+   - 常见操作
+     - 查看/筛选：进入表后可按列筛选、排序，支持分页查看。
+     - 新增：点击“Add record”新增行，填写字段后保存。
+     - 编辑：双击单元格或点“Edit”修改字段，保存自动生效。
+     - 删除：勾选记录后点击“Delete”删除。
+     - 关系：含外键字段的表可直接跳转查看关联记录。
+   - 安全与注意事项
+     - 请勿将本地数据库文件提交到 Git（当前已忽略 prisma/dev.db）。
+     - 不建议直接修改生产环境数据，若需批量/可追溯的修改请改用脚本或迁移。
+     - 修改关键业务字段前请先备份，避免误操作导致数据不一致。
+   - 故障排查
+     - 提示“command not found: prisma”或 Studio 无法启动：
+       ```bash
+       npm i -D prisma
+       ```
+     - 打不开页面：检查终端输出的访问地址与端口，或更换端口重试。
+     - 数据库无法读取：确认 .env 的 DATABASE_URL 正确，且 dev.db 文件存在且无权限问题。
 #### 性能调试
 1. **前端性能**
    - React Profiler：组件渲染性能
