@@ -20,12 +20,8 @@ router.get('/timesheets', authenticateToken, async (req: AuthenticatedRequest, r
     // 构建查询条件
     const where: any = {};
     
-    // 权限控制：Level 3员工只能查看自己的数据
-    if (isLevel3Worker(req.user!.role)) {
-      where.employeeId = req.user!.userId;
-    } else if (employeeId) {
-      where.employeeId = employeeId;
-    }
+    // 所有用户都只能查看自己的数据
+    where.employeeId = req.user!.userId;
     
     if (projectId) where.projectId = projectId;
     
@@ -358,12 +354,8 @@ router.get('/export/timesheets', authenticateToken, async (req: AuthenticatedReq
     // 构建查询条件
     const where: any = {};
     
-    // 权限控制：Level 3员工只能导出自己的数据
-    if (isLevel3Worker(req.user!.role)) {
-      where.employeeId = req.user!.userId;
-    } else if (employeeId) {
-      where.employeeId = employeeId;
-    }
+    // 所有用户都只能导出自己的数据
+    where.employeeId = req.user!.userId;
     
     if (projectId) where.projectId = projectId;
     
@@ -467,12 +459,9 @@ router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedReque
         gte: startDate,
         lte: endDate,
       },
+      // 所有用户都只能查看自己的数据
+      employeeId: req.user!.userId,
     };
-    
-    // 权限控制：Level 3员工只能查看自己的数据
-    if (isLevel3Worker(req.user!.role)) {
-      where.employeeId = req.user!.userId;
-    }
     
     const [totalHours, totalTimesheets, pendingApprovals, activeProjects] = await Promise.all([
       // 总工时
@@ -482,12 +471,15 @@ router.get('/dashboard/stats', authenticateToken, async (req: AuthenticatedReque
       }),
       // 工时记录数
       prisma.timesheet.count({ where }),
-      // 待审批数量（Level 1和Level 2可见）
-      !isLevel3Worker(req.user!.role)
-        ? prisma.approval.count({
-            where: { status: 'PENDING' },
-          })
-        : 0,
+      // 待审批数量（只显示当前用户提交的待审批记录）
+      prisma.approval.count({
+        where: { 
+          status: 'PENDING',
+          timesheet: {
+            employeeId: req.user!.userId
+          }
+        },
+      }),
       // 活跃项目数
       prisma.project.count({
         where: { status: 'ACTIVE' },

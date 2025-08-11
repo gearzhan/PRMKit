@@ -139,12 +139,8 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
     // 构建查询条件
     const where: any = {};
     
-    // 权限控制：Level 3员工只能查看自己的工时
-    if (isLevel3Worker(req.user!.role)) {
-      where.employeeId = req.user!.userId;
-    } else if (employeeId) {
-      where.employeeId = employeeId;
-    }
+    // 所有用户都只能查看自己的工时记录
+    where.employeeId = req.user!.userId;
     
     if (projectId) where.projectId = projectId;
     if (status) where.status = status;
@@ -245,10 +241,8 @@ router.get('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
     
     const where: any = { id };
     
-    // 权限控制：Level 3 员工只能查看自己的工时
-    if (isLevel3Worker(req.user!.role)) {
-      where.employeeId = req.user!.userId;
-    }
+    // 所有用户都只能查看自己的工时记录
+    where.employeeId = req.user!.userId;
     
     const timesheet = await prisma.timesheet.findFirst({
       where,
@@ -531,12 +525,8 @@ router.get('/stats/summary', authenticateToken, async (req: AuthenticatedRequest
     
     const where: any = {};
     
-    // 权限控制
-    if (isLevel3Worker(req.user!.role)) {
-      where.employeeId = req.user!.userId;
-    } else if (employeeId) {
-      where.employeeId = employeeId;
-    }
+    // 所有用户都只能查看自己的工时统计
+    where.employeeId = req.user!.userId;
     
     if (startDate || endDate) {
       where.date = {};

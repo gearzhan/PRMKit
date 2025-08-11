@@ -10,9 +10,10 @@ import {
   FormOutlined,
   TableOutlined,
   TeamOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '@/stores/authStore';
-import { isLevel1Admin, canAccessTimesheets } from '@/utils/roleUtils';
+import { isLevel1Admin, canAccessTimesheets, canApproveTimesheets } from '@/utils/roleUtils';
 
 /**
  * 导航组件 - 提供用户菜单和管理员功能入口
@@ -60,6 +61,15 @@ const Navigation: React.FC = () => {
         onClick: () => navigate('/timesheets'),
       },
     ] : []),
+    // 审批管理页面 - Level 1和Level 2管理员可以访问
+    ...(user && canApproveTimesheets(user.role) ? [
+      {
+        key: 'admin-approvals',
+        icon: <CheckCircleOutlined />,
+        label: 'Approval Management',
+        onClick: () => navigate('/admin/approvals'),
+      },
+    ] : []),
     // Level 1 管理员专用菜单项
     ...(user && isLevel1Admin(user.role) ? [
       {
@@ -69,6 +79,12 @@ const Navigation: React.FC = () => {
         key: 'admin-header',
         label: 'Management',
         type: 'group' as const,
+      },
+      {
+        key: 'admin-dashboard',
+        icon: <DashboardOutlined />,
+        label: 'Admin Dashboard',
+        onClick: () => navigate('/admin/dashboard'),
       },
       {
         key: 'admin-projects',

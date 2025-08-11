@@ -14,6 +14,8 @@ import authRoutes from './routes/auth.js';
 import timesheetRoutes from './routes/timesheets.js';
 import projectRoutes from './routes/projects.js';
 import approvalRoutes from './routes/approvals.js';
+import adminApprovalRoutes from './routes/admin-approvals.js';
+import adminDashboardRoutes from './routes/admin-dashboard.js';
 import reportRoutes from './routes/reports.js';
 import stageRoutes from './routes/stages.js';
 
@@ -71,6 +73,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/timesheets', timesheetRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/approvals', approvalRoutes);
+app.use('/api/admin/approvals', adminApprovalRoutes);
+app.use('/api/admin/dashboard', adminDashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/stages', stageRoutes);
 

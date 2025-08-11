@@ -311,3 +311,75 @@ export const reportAPI = {
     return response.data;
   },
 };
+
+// 管理员审批相关API
+export const adminApprovalAPI = {
+  // 获取待审批列表（管理员专用）
+  getPending: async (params: any = {}) => {
+    const response = await api.get('/admin/approvals/pending', { params });
+    return response.data;
+  },
+  
+  // 获取审批历史（管理员专用）
+  getHistory: async (params: any = {}) => {
+    const response = await api.get('/admin/approvals/history', { params });
+    return response.data;
+  },
+  
+  // 获取审批详情（管理员专用）
+  getById: async (id: string) => {
+    const response = await api.get(`/admin/approvals/${id}`);
+    return response.data;
+  },
+  
+  // 批量审批（管理员专用）
+  batchApprove: async (approvalIds: string[], comments?: string) => {
+    const response = await api.put('/admin/approvals/batch-approve', {
+      approvalIds,
+      comments,
+    });
+    return response.data;
+  },
+  
+  // 批量拒绝（管理员专用）
+  batchReject: async (approvalIds: string[], comments: string) => {
+    const response = await api.put('/admin/approvals/batch-reject', {
+      approvalIds,
+      comments,
+    });
+    return response.data;
+  },
+  
+  // 获取审批统计（管理员专用）
+  getStats: async (params: any = {}) => {
+    const response = await api.get('/admin/approvals/stats', { params });
+    return response.data;
+  },
+};
+
+// 管理员仪表板相关API
+export const adminDashboardAPI = {
+  // 获取月度统计数据
+  getStats: async (month: string) => {
+    const response = await api.get('/admin/dashboard/stats', {
+      params: { month },
+    });
+    return response.data;
+  },
+  
+  // 获取图表数据
+  getChartData: async (month: string) => {
+    const response = await api.get('/admin/dashboard/charts', {
+      params: { month },
+    });
+    return response.data;
+  },
+  
+  // 获取项目钻取数据
+  getProjectDrill: async (projectName: string, month: string) => {
+    const response = await api.get(`/admin/dashboard/project-drill/${encodeURIComponent(projectName)}`, {
+      params: { month },
+    });
+    return response.data;
+  },
+};

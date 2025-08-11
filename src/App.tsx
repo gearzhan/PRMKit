@@ -9,6 +9,9 @@ import Home from '@/pages/Home';
 import AdminProjectList from '@/pages/AdminProjectList';
 import AdminEmployeeList from '@/pages/AdminEmployeeList';
 import AdminStagingManagement from '@/pages/AdminStagingManagement';
+import AdminApprovals from '@/pages/AdminApprovals';
+import AdminDashboard from '@/pages/AdminDashboard';
+import ProjectDrilldown from '@/pages/ProjectDrilldown';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { initializeAuth } from '@/stores/authStore';
 import 'antd/dist/reset.css';
@@ -142,6 +145,15 @@ export default function App() {
           
           {/* 管理员专用路由 - Level 1管理员 */}
           <Route 
+            path="/admin/dashboard" 
+            element={
+              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
             path="/admin/projects" 
             element={
               <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
@@ -164,6 +176,25 @@ export default function App() {
             element={
               <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
                 <AdminStagingManagement />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/admin/approvals" 
+            element={
+              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN', 'PROJECT_MANAGER']}>
+                <AdminApprovals />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* 项目钻取页面 - Level 1管理员 */}
+          <Route 
+            path="/admin/project/:projectId/drilldown" 
+            element={
+              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+                <ProjectDrilldown />
               </ProtectedRoute>
             } 
           />
