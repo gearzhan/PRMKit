@@ -175,6 +175,45 @@ PUT /api/projects/:id - 更新项目
 DELETE /api/projects/:id - 删除项目
 ```
 
+Request (POST /api/projects):
+
+| Param Name  | Param Type | isRequired | Description |
+| ----------- | ---------- | ---------- | ----------- |
+| projectCode | string     | true       | 项目代码        |
+| name        | string     | true       | 项目名称        |
+| description | string     | false      | 项目描述        |
+| nickname    | string     | false      | 项目昵称        |
+| startDate   | string     | true       | 开始日期 (YYYY-MM-DD) |
+| endDate     | string     | false      | 结束日期 (YYYY-MM-DD) |
+| status      | string     | false      | 项目状态，默认ACTIVE |
+
+Request (PUT /api/projects/:id):
+
+| Param Name  | Param Type | isRequired | Description |
+| ----------- | ---------- | ---------- | ----------- |
+| projectCode | string     | false      | 项目代码        |
+| name        | string     | false      | 项目名称        |
+| description | string     | false      | 项目描述        |
+| nickname    | string     | false      | 项目昵称        |
+| startDate   | string     | false      | 开始日期 (YYYY-MM-DD) |
+| endDate     | string     | false      | 结束日期 (YYYY-MM-DD) |
+| status      | string     | false      | 项目状态        |
+
+Response (项目对象):
+
+| Param Name  | Param Type | Description |
+| ----------- | ---------- | ----------- |
+| id          | string     | 项目ID        |
+| projectCode | string     | 项目代码        |
+| name        | string     | 项目名称        |
+| description | string     | 项目描述        |
+| nickname    | string     | 项目昵称        |
+| startDate   | string     | 开始日期        |
+| endDate     | string     | 结束日期        |
+| status      | string     | 项目状态        |
+| createdAt   | string     | 创建时间        |
+| updatedAt   | string     | 更新时间        |
+
 ### 4.4 Employee API
 
 **员工管理**
@@ -380,6 +419,7 @@ erDiagram
         string projectCode UK
         string name
         string description
+        string nickname
         datetime startDate
         datetime endDate
         enum status
@@ -430,15 +470,22 @@ erDiagram
 ### 6.1.1 数据权限控制
 
 **用户数据隔离原则**：
-- 所有用户只能查看和操作自己的数据
-- 通过 `employeeId: req.user!.userId` 实现数据过滤
-- 移除基于用户级别的权限控制，统一使用用户ID过滤
+
+* 所有用户只能查看和操作自己的数据
+
+* 通过 `employeeId: req.user!.userId` 实现数据过滤
+
+* 移除基于用户级别的权限控制，统一使用用户ID过滤
 
 **实现细节**：
-- 个人工时表：仅显示当前用户的工时记录
-- 个人仪表板：仅统计当前用户的工时数据和趋势
-- 审批流程：用户只能看到自己提交的审批记录
-- 数据导出：仅导出当前用户相关的数据
+
+* 个人工时表：仅显示当前用户的工时记录
+
+* 个人仪表板：仅统计当前用户的工时数据和趋势
+
+* 审批流程：用户只能看到自己提交的审批记录
+
+* 数据导出：仅导出当前用户相关的数据
 
 ### 6.2 Data Definition Language
 
@@ -473,6 +520,7 @@ CREATE TABLE projects (
     projectCode TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
+    nickname TEXT,
     startDate DATETIME NOT NULL,
     endDate DATETIME,
     status TEXT DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'COMPLETED', 'SUSPENDED', 'CANCELLED')),

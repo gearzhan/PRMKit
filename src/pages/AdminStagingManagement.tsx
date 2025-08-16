@@ -18,7 +18,7 @@ import {
   Tooltip,
   Switch,
 } from 'antd';
-import Navigation from '@/components/Navigation';
+import PageLayout from '@/components/PageLayout';
 import {
   PlusOutlined,
   EditOutlined,
@@ -314,23 +314,11 @@ const AdminStagingManagement: React.FC = () => {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-      <div style={{ padding: '24px' }}>
-        {/* 页面标题 */}
-        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <Title level={2} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <SettingOutlined style={{ color: '#1890ff' }} />
-              Staging Management
-            </Title>
-            <p style={{ color: '#666', margin: '8px 0 0 0' }}>
-              Manage task templates and categories for timesheet entries
-            </p>
-          </div>
-          <div>
-            <Navigation />
-          </div>
-        </div>
+    <PageLayout
+      title="Staging Management"
+      description="Manage task templates and categories for timesheet entries"
+      icon={<SettingOutlined />}
+    >
 
         {/* 统计卡片 */}
         <Row gutter={16} style={{ marginBottom: '24px' }}>
@@ -505,8 +493,7 @@ const AdminStagingManagement: React.FC = () => {
             </Form.Item>
           </Form>
         </Modal>
-      </div>
-    </div>
+    </PageLayout>
   );
 };
 

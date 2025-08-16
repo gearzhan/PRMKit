@@ -20,7 +20,7 @@ import {
   Switch,
   Avatar,
 } from 'antd';
-import Navigation from '@/components/Navigation';
+import PageLayout from '@/components/PageLayout';
 import {
   PlusOutlined,
   EditOutlined,
@@ -377,19 +377,11 @@ const AdminEmployeeList: React.FC = () => {
   ];
 
   return (
-    <div className="p-6">
-      {/* 页面标题 */}
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <Title level={2}>
-            <TeamOutlined className="mr-2" />
-            Employee Management
-          </Title>
-        </div>
-        <div>
-          <Navigation />
-        </div>
-      </div>
+    <PageLayout
+      title="Employee Management"
+      description="Manage employee accounts and permissions"
+      icon={<TeamOutlined />}
+    >
 
       {/* 统计卡片 */}
       <Row gutter={16} className="mb-6">
@@ -612,7 +604,7 @@ const AdminEmployeeList: React.FC = () => {
           </Row>
         </Form>
       </Modal>
-    </div>
+    </PageLayout>
   );
 };
 

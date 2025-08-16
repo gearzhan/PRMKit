@@ -19,7 +19,7 @@ import {
   Tooltip,
   InputNumber,
 } from 'antd';
-import Navigation from '@/components/Navigation';
+import PageLayout from '@/components/PageLayout';
 import {
   PlusOutlined,
   EditOutlined,
@@ -51,6 +51,7 @@ interface Project {
   projectCode: string;
   name: string;
   description?: string;
+  nickname?: string;
   status: string;
   startDate: string;
   endDate?: string;
@@ -71,6 +72,7 @@ interface ProjectFormData {
   projectCode: string;
   name: string;
   description?: string;
+  nickname?: string;
   status: string;
   startDate: dayjs.Dayjs;
   endDate?: dayjs.Dayjs;
@@ -140,6 +142,7 @@ const AdminProjectList: React.FC = () => {
         projectCode: project.projectCode,
         name: project.name,
         description: project.description,
+        nickname: project.nickname,
         status: project.status,
         startDate: dayjs(project.startDate),
         endDate: project.endDate ? dayjs(project.endDate) : undefined,
@@ -244,6 +247,24 @@ const AdminProjectList: React.FC = () => {
       ),
     },
     {
+      title: 'Nickname',
+      dataIndex: 'nickname',
+      key: 'nickname',
+      width: 150,
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text) => (
+        text ? (
+          <Tag color="orange">
+            <Tooltip placement="topLeft" title={text}>
+              {text}
+            </Tooltip>
+          </Tag>
+        ) : '-'
+      ),
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
@@ -314,19 +335,11 @@ const AdminProjectList: React.FC = () => {
   ];
 
   return (
-    <div className="p-6">
-      {/* 页面标题 */}
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <Title level={2}>
-            <ProjectOutlined className="mr-2" />
-            Project Management
-          </Title>
-        </div>
-        <div>
-          <Navigation />
-        </div>
-      </div>
+    <PageLayout
+      title="Project Management"
+      description="Manage projects and team assignments"
+      icon={<ProjectOutlined />}
+    >
 
       {/* 统计卡片 */}
       <Row gutter={16} className="mb-6">
@@ -374,7 +387,7 @@ const AdminProjectList: React.FC = () => {
           <Col flex="auto">
             <Space>
               <Input
-                placeholder="Search project name, code or description"
+                placeholder="Search project name, code, nickname or description"
                 prefix={<SearchOutlined />}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
@@ -478,6 +491,13 @@ const AdminProjectList: React.FC = () => {
           </Form.Item>
 
           <Form.Item
+            label="Project Nickname"
+            name="nickname"
+          >
+            <Input placeholder="Enter project nickname (optional)" />
+          </Form.Item>
+
+          <Form.Item
             label="Project Description"
             name="description"
           >
@@ -510,7 +530,7 @@ const AdminProjectList: React.FC = () => {
 
         </Form>
       </Modal>
-    </div>
+    </PageLayout>
   );
 };
 

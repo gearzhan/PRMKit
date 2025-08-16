@@ -27,6 +27,7 @@ model Employee {
   timesheets     Timesheet[] // 工时记录
   approvals      Approval[]  @relation("ApproverApprovals") // 作为审批人的审批记录
   submittedApprovals Approval[] @relation("SubmitterApprovals") // 作为提交人的审批记录
+  csvImportLogs  CsvImportLog[] // CSV导入日志记录
 
   @@map("employees")
 }
@@ -52,10 +53,11 @@ model Project {
   projectCode String   @unique // 项目编码
   name        String   // 项目名称
   description String?  // 项目描述
+  nickname    String?  // 项目昵称
   startDate   DateTime // 开始日期
   endDate     DateTime? // 结束日期
   status      ProjectStatus @default(ACTIVE) // 项目状态
-  stage       String?  // 项目阶段
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -72,13 +74,6 @@ enum ProjectStatus {
   SUSPENDED // 暂停
   CANCELLED // 已取消
 }
-
-
-
-
-
-
-
 
 
 // 工时表 - Timesheet model
@@ -156,4 +151,57 @@ model Stage {
   timesheets  Timesheet[] // 工时记录
 
   @@map("stages")
+}
+
+// CSV导入日志表 - CSV Import Log model
+model CsvImportLog {
+  id          String   @id @default(cuid())
+  fileName    String   // 导入文件名
+  dataType    CsvDataType // 数据类型（员工、项目、工时）
+  operatorId  String   // 操作员ID
+  totalRows   Int      // 总行数
+  successRows Int      // 成功行数
+  errorRows   Int      // 错误行数
+  status      CsvImportStatus @default(PROCESSING) // 导入状态
+  startTime   DateTime @default(now()) // 开始时间
+  endTime     DateTime? // 结束时间
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 关联关系
+  operator Employee @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  errors   CsvImportError[] // 错误记录
+
+  @@map("csv_import_logs")
+}
+
+// CSV导入错误表 - CSV Import Error model
+model CsvImportError {
+  id        String @id @default(cuid())
+  logId     String // 导入日志ID
+  rowNumber Int    // 错误行号
+  field     String? // 错误字段
+  value     String? // 错误值
+  message   String // 错误信息
+  createdAt DateTime @default(now())
+
+  // 关联关系
+  log CsvImportLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+
+  @@map("csv_import_errors")
+}
+
+// CSV数据类型枚举
+enum CsvDataType {
+  EMPLOYEE  // 员工数据
+  PROJECT   // 项目数据
+  TIMESHEET // 工时数据
+}
+
+// CSV导入状态枚举
+enum CsvImportStatus {
+  PROCESSING // 处理中
+  SUCCESS    // 成功
+  FAILED     // 失败
+  PARTIAL    // 部分成功
 }

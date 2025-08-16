@@ -6,11 +6,13 @@ import Dashboard from '@/pages/Dashboard';
 import TimesheetEntry from '@/pages/TimesheetEntry';
 import Timesheets from '@/pages/Timesheets';
 import Home from '@/pages/Home';
+import ProjectList from '@/pages/ProjectList';
 import AdminProjectList from '@/pages/AdminProjectList';
 import AdminEmployeeList from '@/pages/AdminEmployeeList';
 import AdminStagingManagement from '@/pages/AdminStagingManagement';
 import AdminApprovals from '@/pages/AdminApprovals';
 import AdminDashboard from '@/pages/AdminDashboard';
+import DataManagement from '@/pages/DataManagement';
 import ProjectDrilldown from '@/pages/ProjectDrilldown';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { initializeAuth } from '@/stores/authStore';
@@ -107,14 +109,12 @@ export default function App() {
             } 
           />
           
-          {/* 项目管理路由 - Level 1管理员 */}
+          {/* 项目列表路由 - L3员工可访问 */}
           <Route 
             path="/projects" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
-                <div className="p-6">
-                  <h1 className="text-2xl font-bold">Projects - Coming Soon</h1>
-                </div>
+              <ProtectedRoute requiredRoles={['JUNIOR_ARCHITECT', 'ARCHITECT', 'PROJECT_MANAGER', 'DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+                <ProjectList />
               </ProtectedRoute>
             } 
           />
@@ -185,6 +185,15 @@ export default function App() {
             element={
               <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN', 'PROJECT_MANAGER']}>
                 <AdminApprovals />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="/admin/data-management" 
+            element={
+              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+                <DataManagement />
               </ProtectedRoute>
             } 
           />

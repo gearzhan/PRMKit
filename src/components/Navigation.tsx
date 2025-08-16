@@ -11,9 +11,15 @@ import {
   TableOutlined,
   TeamOutlined,
   CheckCircleOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '@/stores/authStore';
 import { isLevel1Admin, canAccessTimesheets, canApproveTimesheets } from '@/utils/roleUtils';
+
+// 检查用户是否可以访问项目列表（L3及以上用户）
+const canAccessProjects = (role: string) => {
+  return ['JUNIOR_ARCHITECT', 'ARCHITECT', 'PROJECT_MANAGER', 'DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN'].includes(role);
+};
 
 /**
  * 导航组件 - 提供用户菜单和管理员功能入口
@@ -61,6 +67,15 @@ const Navigation: React.FC = () => {
         onClick: () => navigate('/timesheets'),
       },
     ] : []),
+    // 项目列表页面 - L3及以上用户可以访问
+    ...(user && canAccessProjects(user.role) ? [
+      {
+        key: 'projects',
+        icon: <ProjectOutlined />,
+        label: 'Projects',
+        onClick: () => navigate('/projects'),
+      },
+    ] : []),
     // 审批管理页面 - Level 1和Level 2管理员可以访问
     ...(user && canApproveTimesheets(user.role) ? [
       {
@@ -103,6 +118,12 @@ const Navigation: React.FC = () => {
         icon: <ClockCircleOutlined />,
         label: 'Stage Management',
         onClick: () => navigate('/admin/stages'),
+      },
+      {
+        key: 'admin-data-management',
+        icon: <DatabaseOutlined />,
+        label: 'Data Management',
+        onClick: () => navigate('/admin/data-management'),
       },
     ] : []),
     {

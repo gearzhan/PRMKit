@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Statistic, Spin, Alert, Select } from 'antd';
-import { 
+import {
+  DashboardOutlined,
   ClockCircleOutlined, 
   CheckCircleOutlined, 
   ExclamationCircleOutlined,
+  TeamOutlined,
   ProjectOutlined,
 } from '@ant-design/icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import Navigation from '@/components/Navigation';
+import PageLayout from '@/components/PageLayout';
 import { useAuthStore } from '@/stores/authStore';
 import { reportAPI } from '@/lib/api';
 import dayjs from 'dayjs';
@@ -112,19 +114,11 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      {/* 页面标题 */}
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">
-            Welcome back, {user?.name}! Here's your timesheet overview.
-          </p>
-        </div>
-        <div>
-          <Navigation />
-        </div>
-      </div>
+    <PageLayout
+      title="Dashboard"
+      description="Monthly timesheet analytics and project insights"
+      icon={<DashboardOutlined />}
+    >
 
       {/* 错误提示 */}
       {error && (
@@ -233,7 +227,7 @@ const Dashboard: React.FC = () => {
         </Col>
       </Row>
 
-    </div>
+    </PageLayout>
   );
 };
 

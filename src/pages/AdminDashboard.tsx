@@ -12,7 +12,7 @@ import {
   Empty,
   Tooltip,
 } from 'antd';
-import Navigation from '@/components/Navigation';
+import PageLayout from '@/components/PageLayout';
 import {
   DashboardOutlined,
   ClockCircleOutlined,
@@ -168,22 +168,11 @@ const AdminDashboard: React.FC = () => {
 
 
   return (
-    <div className="p-6">
-      {/* 页面标题和导航 */}
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <Title level={2}>
-            <DashboardOutlined className="mr-2" />
-            Admin Dashboard
-          </Title>
-          <p className="text-gray-600 mt-1">
-            Monthly timesheet analytics and project insights
-          </p>
-        </div>
-        <div>
-          <Navigation />
-        </div>
-      </div>
+    <PageLayout
+      title="Admin Dashboard"
+      description="Monthly timesheet analytics and project insights"
+      icon={<DashboardOutlined />}
+    >
 
       {/* 月度选择器 */}
       <Card className="mb-6">
@@ -281,11 +270,7 @@ const AdminDashboard: React.FC = () => {
           </div>
         </Card>
       )}
-
-
-
-
-    </div>
+    </PageLayout>
   );
 };
 

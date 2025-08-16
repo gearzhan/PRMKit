@@ -18,6 +18,7 @@ import adminApprovalRoutes from './routes/admin-approvals.js';
 import adminDashboardRoutes from './routes/admin-dashboard.js';
 import reportRoutes from './routes/reports.js';
 import stageRoutes from './routes/stages.js';
+import csvManagementRoutes from './routes/csv-management.js';
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url);
@@ -77,6 +78,7 @@ app.use('/api/admin/approvals', adminApprovalRoutes);
 app.use('/api/admin/dashboard', adminDashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/stages', stageRoutes);
+app.use('/api/csv', csvManagementRoutes);
 
 /**
  * health

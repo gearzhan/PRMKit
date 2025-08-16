@@ -27,6 +27,7 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
         { name: { contains: search as string } },
         { projectCode: { contains: search as string } },
         { description: { contains: search as string } },
+        { nickname: { contains: search as string } },
       ];
     }
     
@@ -101,6 +102,7 @@ router.post('/', authenticateToken, requireLevel1Admin, async (req: Authenticate
       projectCode,
       name,
       description,
+      nickname,
       startDate,
       endDate,
 
@@ -126,6 +128,7 @@ router.post('/', authenticateToken, requireLevel1Admin, async (req: Authenticate
         projectCode,
         name,
         description,
+        nickname,
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
 
@@ -157,6 +160,7 @@ router.put('/:id', authenticateToken, requireLevel1Admin, async (req: Authentica
     const {
       name,
       description,
+      nickname,
       startDate,
       endDate,
       status,
@@ -167,6 +171,7 @@ router.put('/:id', authenticateToken, requireLevel1Admin, async (req: Authentica
     const updateData: any = {};
     if (name) updateData.name = name;
     if (description !== undefined) updateData.description = description;
+    if (nickname !== undefined) updateData.nickname = nickname;
     if (startDate) updateData.startDate = new Date(startDate);
     if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
     if (status) updateData.status = status as ProjectStatus;

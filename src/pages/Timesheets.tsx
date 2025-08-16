@@ -25,9 +25,10 @@ import {
   FilterOutlined,
   ExportOutlined,
   MoreOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import Navigation from '@/components/Navigation';
+import PageLayout from '@/components/PageLayout';
 import { useAuthStore } from '@/stores/authStore';
 import { timesheetAPI, projectAPI } from '@/lib/api';
 import { isLevel3Worker, isLevel1Admin } from '@/utils/roleUtils';
@@ -397,20 +398,11 @@ const Timesheets: React.FC = () => {
   }, [currentPage, pageSize, filters]);
 
   return (
-    <div>
-      <div className="p-6 bg-gray-50 min-h-screen">
-      {/* 页面标题 */}
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Timesheets</h1>
-          <p className="text-gray-600 mt-1">
-            Manage and track your timesheet records
-          </p>
-        </div>
-        <div>
-          <Navigation />
-        </div>
-      </div>
+    <PageLayout
+      title="Timesheets"
+      description="Manage and track your timesheet records"
+      icon={<ClockCircleOutlined />}
+    >
 
       {/* 统计卡片 */}
       <Row gutter={16} className="mb-6">
@@ -568,8 +560,7 @@ const Timesheets: React.FC = () => {
           }}
           scroll={{ x: 1200 }}
         />      </Card>
-      </div>
-    </div>
+    </PageLayout>
   );
 };
 

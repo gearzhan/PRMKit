@@ -4,27 +4,24 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('开始种子数据填充...');
-
-  // 检查是否已有数据，如果有则跳过初始化
-  const existingEmployees = await prisma.employee.count();
-  const existingStages = await prisma.stage.count();
-  
-  if (existingEmployees > 0 || existingStages > 0) {
-    console.log('数据库已有数据，跳过初始化以保持用户修改的数据...');
-    console.log(`现有员工数量: ${existingEmployees}`);
-    console.log(`现有阶段数量: ${existingStages}`);
-    return;
-  }
-
-  console.log('数据库为空，开始初始化数据...');
+  console.log('开始种子数据填充（使用upsert策略）...');
+  console.log('如果主键重复则覆盖更新，如果主键为新则添加...');
 
   // 创建新的Admin账户 - 使用新的角色层级系统
   const adminPassword = await bcrypt.hash('admin0258', 10);
   const userPassword = await bcrypt.hash('02580258', 10);
 
-  const admin = await prisma.employee.create({
-    data: {
+  const admin = await prisma.employee.upsert({
+    where: { employeeId: 'SAIYU_001' },
+    update: {
+      email: 'gzhan@saiyu.com.au',
+      password: adminPassword,
+      name: 'Admin User',
+      role: Role.DIRECTOR, // Level 1 Admin - Full Access
+      position: 'Director',
+      isActive: true,
+    },
+    create: {
       employeeId: 'SAIYU_001',
       email: 'gzhan@saiyu.com.au',
       password: adminPassword,
@@ -79,10 +76,15 @@ async function main() {
     },
   ];
 
-  // 批量创建示例员工
+  // 批量创建示例员工（使用upsert）
   for (const employeeData of sampleEmployees) {
-    await prisma.employee.create({
-      data: {
+    await prisma.employee.upsert({
+      where: { employeeId: employeeData.employeeId },
+      update: {
+        ...employeeData,
+        isActive: true,
+      },
+      create: {
         ...employeeData,
         isActive: true,
       },
@@ -193,10 +195,15 @@ async function main() {
     },
   ];
 
-  // 批量创建阶段数据
+  // 批量创建阶段数据（使用upsert）
   for (const stage of stageData) {
-    await prisma.stage.create({
-      data: {
+    await prisma.stage.upsert({
+      where: { taskId: stage.taskId },
+      update: {
+        ...stage,
+        isActive: true,
+      },
+      create: {
         ...stage,
         isActive: true,
       },
@@ -212,7 +219,6 @@ async function main() {
       description: 'A sample residential development project',
       startDate: new Date(),
       status: ProjectStatus.ACTIVE,
-      stage: 'Design Phase',
     },
     {
       projectCode: 'PROJ002', 
@@ -220,7 +226,6 @@ async function main() {
       description: 'A commercial office building project',
       startDate: new Date(),
       status: ProjectStatus.ACTIVE,
-      stage: 'Construction Documentation',
     },
     {
       projectCode: 'PROJ003',
@@ -228,14 +233,15 @@ async function main() {
       description: 'A mixed use residential and commercial development',
       startDate: new Date(),
       status: ProjectStatus.ACTIVE,
-      stage: 'Development Application',
     },
   ];
 
-  // 批量创建项目数据
+  // 批量创建项目数据（使用upsert）
   for (const project of projectData) {
-    await prisma.project.create({
-      data: project,
+    await prisma.project.upsert({
+      where: { projectCode: project.projectCode },
+      update: project,
+      create: project,
     });
   }
 
