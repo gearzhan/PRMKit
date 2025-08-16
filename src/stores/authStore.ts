@@ -4,29 +4,20 @@ import { authAPI } from '@/lib/api';
 
 // 用户角色类型 - 新的角色层级系统
 export type UserRole = 
-  // Level 1 Admin - Full Access
-  | 'DIRECTOR' 
-  | 'ASSOCIATE' 
-  | 'OFFICE_ADMIN'
-  // Level 2 Manager - Time Sheets
-  | 'PROJECT_MANAGER'
-  // Level 3 Worker - Time Sheets  
-  | 'JUNIOR_ARCHITECT'
-  | 'ARCHITECT';
+  | 'LEVEL1'
+  | 'LEVEL2'
+  | 'LEVEL3';
 
 // 角色系统级别定义
 export const ROLE_LEVELS = {
-  // Level 1 Admin - Full Access
-  DIRECTOR: 1,
-  ASSOCIATE: 1,
-  OFFICE_ADMIN: 1,
+  // Level 1 - Admin (Full Access)
+  LEVEL1: 1,
   
-  // Level 2 Manager - Time Sheets
-  PROJECT_MANAGER: 2,
+  // Level 2 - Manager (Time Sheets + Management)
+  LEVEL2: 2,
   
-  // Level 3 Worker - Time Sheets
-  JUNIOR_ARCHITECT: 3,
-  ARCHITECT: 3,
+  // Level 3 - Worker (Time Sheets Only)
+  LEVEL3: 3,
 } as const;
 
 // 用户信息接口

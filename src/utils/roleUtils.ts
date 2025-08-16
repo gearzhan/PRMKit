@@ -5,8 +5,8 @@ import type { Role } from '@prisma/client';
  * @param role 用户角色
  * @returns 是否为 Level 1 管理员
  */
-export const isLevel1Admin = (role: Role): boolean => {
-  return role === 'DIRECTOR' || role === 'ASSOCIATE' || role === 'OFFICE_ADMIN';
+export const isLevel1Admin = (role: string): boolean => {
+  return role === 'LEVEL1';
 };
 
 /**
@@ -14,8 +14,8 @@ export const isLevel1Admin = (role: Role): boolean => {
  * @param role 用户角色
  * @returns 是否为 Level 2 管理员
  */
-export const isLevel2Manager = (role: Role): boolean => {
-  return role === 'PROJECT_MANAGER';
+export const isLevel2Manager = (role: string): boolean => {
+  return role === 'LEVEL2';
 };
 
 /**
@@ -23,8 +23,8 @@ export const isLevel2Manager = (role: Role): boolean => {
  * @param role 用户角色
  * @returns 是否为 Level 3 员工
  */
-export const isLevel3Worker = (role: Role): boolean => {
-  return role === 'JUNIOR_ARCHITECT' || role === 'ARCHITECT';
+export const isLevel3Worker = (role: string): boolean => {
+  return role === 'LEVEL3';
 };
 
 /**

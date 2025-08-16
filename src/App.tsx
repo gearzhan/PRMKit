@@ -113,7 +113,7 @@ export default function App() {
           <Route 
             path="/projects" 
             element={
-              <ProtectedRoute requiredRoles={['JUNIOR_ARCHITECT', 'ARCHITECT', 'PROJECT_MANAGER', 'DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+              <ProtectedRoute requiredRoles={['LEVEL1', 'LEVEL2', 'LEVEL3']}>
                 <ProjectList />
               </ProtectedRoute>
             } 
@@ -123,7 +123,7 @@ export default function App() {
           <Route 
             path="/approvals" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+              <ProtectedRoute requiredRoles={['LEVEL1']}>
                 <div className="p-6">
                   <h1 className="text-2xl font-bold">Approvals - Coming Soon</h1>
                 </div>
@@ -135,7 +135,7 @@ export default function App() {
           <Route 
             path="/reports" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+              <ProtectedRoute requiredRoles={['LEVEL1']}>
                 <div className="p-6">
                   <h1 className="text-2xl font-bold">Reports - Coming Soon</h1>
                 </div>
@@ -147,7 +147,7 @@ export default function App() {
           <Route 
             path="/admin/dashboard" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+              <ProtectedRoute requiredRoles={['LEVEL1']}>
                 <AdminDashboard />
               </ProtectedRoute>
             } 
@@ -156,7 +156,7 @@ export default function App() {
           <Route 
             path="/admin/projects" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+              <ProtectedRoute requiredRoles={['LEVEL1']}>
                 <AdminProjectList />
               </ProtectedRoute>
             } 
@@ -165,7 +165,7 @@ export default function App() {
           <Route 
             path="/admin/employees" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+              <ProtectedRoute requiredRoles={['LEVEL1']}>
                 <AdminEmployeeList />
               </ProtectedRoute>
             } 
@@ -174,7 +174,7 @@ export default function App() {
           <Route 
             path="/admin/stages" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+              <ProtectedRoute requiredRoles={['LEVEL1']}>
                 <AdminStagingManagement />
               </ProtectedRoute>
             } 
@@ -183,7 +183,7 @@ export default function App() {
           <Route 
             path="/admin/approvals" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN', 'PROJECT_MANAGER']}>
+              <ProtectedRoute requiredRoles={['LEVEL1', 'LEVEL2']}>
                 <AdminApprovals />
               </ProtectedRoute>
             } 
@@ -192,7 +192,7 @@ export default function App() {
           <Route 
             path="/admin/data-management" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+              <ProtectedRoute requiredRoles={['LEVEL1']}>
                 <DataManagement />
               </ProtectedRoute>
             } 
@@ -202,7 +202,7 @@ export default function App() {
           <Route 
             path="/admin/project/:projectId/drilldown" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+              <ProtectedRoute requiredRoles={['LEVEL1']}>
                 <ProjectDrilldown />
               </ProtectedRoute>
             } 
@@ -212,7 +212,7 @@ export default function App() {
           <Route 
             path="/users" 
             element={
-              <ProtectedRoute requiredRoles={['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN']}>
+              <ProtectedRoute requiredRoles={['LEVEL1']}>
                 <AdminEmployeeList />
               </ProtectedRoute>
             } 

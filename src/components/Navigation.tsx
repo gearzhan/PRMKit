@@ -18,7 +18,7 @@ import { isLevel1Admin, canAccessTimesheets, canApproveTimesheets } from '@/util
 
 // 检查用户是否可以访问项目列表（L3及以上用户）
 const canAccessProjects = (role: string) => {
-  return ['JUNIOR_ARCHITECT', 'ARCHITECT', 'PROJECT_MANAGER', 'DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN'].includes(role);
+  return ['LEVEL1', 'LEVEL2', 'LEVEL3'].includes(role);
 };
 
 /**

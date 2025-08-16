@@ -87,6 +87,8 @@ graph TD
 | /admin/project/:id/drilldown | 项目钻取页面，项目详细分析（仅Level 1管理员）          |
 | /admin/timesheets            | 管理员工时表页面，全员工时监控（仅Level 1管理员）        |
 | /admin/approvals             | 管理员审批页面，工时表审批管理（Level 1和Level 2管理员） |
+| /admin/data-management       | 数据管理页面，CSV导入导出操作界面（仅Level 1管理员）     |
+| /admin/data-management/logs  | 操作日志页面，查看导入导出历史记录（仅Level 1管理员）      |
 
 ## 4. API definitions
 
@@ -177,27 +179,27 @@ DELETE /api/projects/:id - 删除项目
 
 Request (POST /api/projects):
 
-| Param Name  | Param Type | isRequired | Description |
-| ----------- | ---------- | ---------- | ----------- |
-| projectCode | string     | true       | 项目代码        |
-| name        | string     | true       | 项目名称        |
-| description | string     | false      | 项目描述        |
-| nickname    | string     | false      | 项目昵称        |
+| Param Name  | Param Type | isRequired | Description       |
+| ----------- | ---------- | ---------- | ----------------- |
+| projectCode | string     | true       | 项目代码              |
+| name        | string     | true       | 项目名称              |
+| description | string     | false      | 项目描述              |
+| nickname    | string     | false      | 项目昵称              |
 | startDate   | string     | true       | 开始日期 (YYYY-MM-DD) |
 | endDate     | string     | false      | 结束日期 (YYYY-MM-DD) |
-| status      | string     | false      | 项目状态，默认ACTIVE |
+| status      | string     | false      | 项目状态，默认ACTIVE     |
 
 Request (PUT /api/projects/:id):
 
-| Param Name  | Param Type | isRequired | Description |
-| ----------- | ---------- | ---------- | ----------- |
-| projectCode | string     | false      | 项目代码        |
-| name        | string     | false      | 项目名称        |
-| description | string     | false      | 项目描述        |
-| nickname    | string     | false      | 项目昵称        |
+| Param Name  | Param Type | isRequired | Description       |
+| ----------- | ---------- | ---------- | ----------------- |
+| projectCode | string     | false      | 项目代码              |
+| name        | string     | false      | 项目名称              |
+| description | string     | false      | 项目描述              |
+| nickname    | string     | false      | 项目昵称              |
 | startDate   | string     | false      | 开始日期 (YYYY-MM-DD) |
 | endDate     | string     | false      | 结束日期 (YYYY-MM-DD) |
-| status      | string     | false      | 项目状态        |
+| status      | string     | false      | 项目状态              |
 
 Response (项目对象):
 
@@ -276,7 +278,39 @@ GET /api/reports/admin/missing-days - 缺勤天数查询（仅Level 1）
 POST /api/reports/admin/export/csv - CSV导出（仅Level 1）
 ```
 
-### 4.9 Admin Approval API（新增）
+### 4.9 CSV导入导出API（新增）
+
+**CSV数据管理**
+
+```
+GET /api/admin/csv/export/employees - 员工数据导出
+GET /api/admin/csv/export/projects - 项目数据导出
+GET /api/admin/csv/export/timesheets - 工时数据导出
+POST /api/admin/csv/validate - 文件上传和验证
+POST /api/admin/csv/import - 执行导入
+GET /api/admin/csv/template/:dataType - 下载导入模板
+GET /api/admin/csv/logs - 获取操作日志
+```
+
+Request (POST /api/admin/csv/validate):
+
+| Param Name | Param Type | isRequired | Description |
+| ---------- | ---------- | ---------- | ----------- |
+| file       | File       | true       | CSV文件 |
+| dataType   | string     | true       | 数据类型: 'employees'/'projects'/'timesheets' |
+
+Response:
+
+| Param Name | Param Type | Description |
+| ---------- | ---------- | ----------- |
+| success    | boolean    | 验证状态 |
+| validationId | string   | 验证ID |
+| totalRows  | number     | 总行数 |
+| validRows  | number     | 有效行数 |
+| errorRows  | number     | 错误行数 |
+| errors     | array      | 错误详情列表 |
+
+### 4.10 Admin Approval API（新增）
 
 **管理员审批管理**
 
@@ -400,6 +434,7 @@ erDiagram
     PROJECT ||--o{ TIMESHEET : tracks
     STAGE ||--o{ TIMESHEET : references
     TIMESHEET ||--|| APPROVAL : requires
+    CSV_IMPORT_LOG ||--o{ CSV_IMPORT_ERROR : contains
     
     EMPLOYEE {
         string id PK
@@ -453,6 +488,31 @@ erDiagram
         string comments
         datetime createdAt
         datetime updatedAt
+    }
+    
+    CSV_IMPORT_LOG {
+        string id PK
+        string operation
+        string dataType
+        string userId
+        string fileName
+        int totalRows
+        int successRows
+        int errorRows
+        string status
+        text summary
+        datetime createdAt
+        datetime updatedAt
+    }
+    
+    CSV_IMPORT_ERROR {
+        string id PK
+        string importLogId FK
+        int rowNumber
+        string fieldName
+        string errorMessage
+        text originalValue
+        datetime createdAt
     }
     
     STAGE {
@@ -614,6 +674,53 @@ CREATE TABLE stages (
 CREATE INDEX idx_stages_taskId ON stages(taskId);
 CREATE INDEX idx_stages_category ON stages(category);
 CREATE INDEX idx_stages_active ON stages(isActive);
+
+**CSV导入日志表 (csv_import_logs)**
+
+```sql
+-- 创建CSV导入日志表
+CREATE TABLE csv_import_logs (
+    id TEXT PRIMARY KEY,
+    operation TEXT NOT NULL CHECK (operation IN ('import', 'export')),
+    dataType TEXT NOT NULL CHECK (dataType IN ('employees', 'projects', 'timesheets')),
+    userId TEXT NOT NULL,
+    userName TEXT NOT NULL,
+    fileName TEXT,
+    totalRows INTEGER DEFAULT 0,
+    successRows INTEGER DEFAULT 0,
+    errorRows INTEGER DEFAULT 0,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'success', 'failed')),
+    summary TEXT,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 创建索引
+CREATE INDEX idx_csv_import_logs_userId ON csv_import_logs(userId);
+CREATE INDEX idx_csv_import_logs_createdAt ON csv_import_logs(createdAt DESC);
+CREATE INDEX idx_csv_import_logs_operation ON csv_import_logs(operation);
+CREATE INDEX idx_csv_import_logs_dataType ON csv_import_logs(dataType);
+```
+
+**CSV导入错误表 (csv_import_errors)**
+
+```sql
+-- 创建CSV导入错误表
+CREATE TABLE csv_import_errors (
+    id TEXT PRIMARY KEY,
+    importLogId TEXT NOT NULL,
+    rowNumber INTEGER NOT NULL,
+    fieldName TEXT,
+    errorMessage TEXT NOT NULL,
+    originalValue TEXT,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (importLogId) REFERENCES csv_import_logs(id) ON DELETE CASCADE
+);
+
+-- 创建索引
+CREATE INDEX idx_csv_import_errors_importLogId ON csv_import_errors(importLogId);
+CREATE INDEX idx_csv_import_errors_rowNumber ON csv_import_errors(rowNumber);
+```
 ```
 
 **初始化数据**

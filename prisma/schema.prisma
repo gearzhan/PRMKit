@@ -17,7 +17,7 @@ model Employee {
   name        String   // 姓名
   email       String   @unique // 邮箱
   password    String   // 密码哈希
-  role        Role     @default(DIRECTOR) // 角色
+  role        Role     @default(LEVEL3) // 角色
   position    String?  // 职位
   isActive    Boolean  @default(true) // 是否激活
   createdAt   DateTime @default(now())
@@ -32,19 +32,11 @@ model Employee {
   @@map("employees")
 }
 
-// 角色枚举 - Role enumeration with system levels
+// 角色枚举 - Role enumeration with authority levels
 enum Role {
-  // Level 1 Admin - Full Access
-  DIRECTOR      // 总监
-  ASSOCIATE     // 合伙人
-  OFFICE_ADMIN  // 办公室管理员
-  
-  // Level 2 Manager - Time Sheets
-  PROJECT_MANAGER // 项目经理
-  
-  // Level 3 Worker - Time Sheets
-  JUNIOR_ARCHITECT // 初级建筑师
-  ARCHITECT        // 建筑师
+  LEVEL1 // 一级权限 - 全部访问权限 (管理员)
+  LEVEL2 // 二级权限 - 管理权限 (经理)
+  LEVEL3 // 三级权限 - 基础权限 (员工)
 }
 
 // 项目表 - Project model

@@ -1,5 +1,5 @@
 import { PrismaClient, Role, ProjectStatus } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -17,7 +17,7 @@ async function main() {
       email: 'gzhan@saiyu.com.au',
       password: adminPassword,
       name: 'Admin User',
-      role: Role.DIRECTOR, // Level 1 Admin - Full Access
+      role: 'LEVEL1' as Role, // Level 1 Admin - Full Access
       position: 'Director',
       isActive: true,
     },
@@ -26,7 +26,7 @@ async function main() {
       email: 'gzhan@saiyu.com.au',
       password: adminPassword,
       name: 'Admin User',
-      role: Role.DIRECTOR, // Level 1 Admin - Full Access
+      role: 'LEVEL1' as Role, // Level 1 Admin - Full Access
       position: 'Director',
       isActive: true,
     },
@@ -39,7 +39,7 @@ async function main() {
       email: 'associate@prmkit.com',
       password: userPassword,
       name: 'John Associate',
-      role: Role.ASSOCIATE, // Level 1 Admin - Full Access
+      role: 'LEVEL1' as Role, // Level 1 Admin - Full Access
       position: 'Associate Partner',
     },
     {
@@ -47,7 +47,7 @@ async function main() {
       email: 'office@prmkit.com',
       password: userPassword,
       name: 'Sarah Office',
-      role: Role.OFFICE_ADMIN, // Level 1 Admin - Full Access
+      role: 'LEVEL1' as Role, // Level 1 Admin - Full Access
       position: 'Office Administrator',
     },
     {
@@ -55,7 +55,7 @@ async function main() {
       email: 'pm@prmkit.com',
       password: userPassword,
       name: 'Mike PM',
-      role: Role.PROJECT_MANAGER, // Level 2 Manager - Time Sheets
+      role: 'LEVEL2' as Role, // Level 2 Manager - Time Sheets
       position: 'Project Manager',
     },
     {
@@ -63,7 +63,7 @@ async function main() {
       email: 'arch@prmkit.com',
       password: userPassword,
       name: 'Lisa Arch',
-      role: Role.ARCHITECT, // Level 3 Worker - Time Sheets
+      role: 'LEVEL3' as Role, // Level 3 Worker - Time Sheets
       position: 'Senior Architect',
     },
     {
@@ -71,7 +71,7 @@ async function main() {
       email: 'junior@prmkit.com',
       password: userPassword,
       name: 'Tom Junior',
-      role: Role.JUNIOR_ARCHITECT, // Level 3 Worker - Time Sheets
+      role: 'LEVEL3' as Role, // Level 3 Worker - Time Sheets
       position: 'Junior Architect',
     },
   ];
@@ -248,14 +248,14 @@ async function main() {
   console.log('Admin账户、示例员工和阶段数据创建完成');
   console.log('种子数据填充完成！');
   console.log('\n=== 账户信息 ===');
-  console.log('\n主管理员账户 (DIRECTOR - Level 1):');
+  console.log('\n主管理员账户 (LEVEL1 - Level 1):');
   console.log('邮箱: gzhan@saiyu.com.au');
   console.log('密码: admin0258');
   console.log('\n其他示例账户 (密码均为: 02580258):');
   console.log('\n角色权限说明:');
-  console.log('- Level 1 (Director/Associate/Office Admin): 全权限访问');
+  console.log('- Level 1 (LEVEL1): 全权限访问');
   console.log('- Level 2 (Project Manager): 时间表权限');
-  console.log('- Level 3 (Architect/Junior Architect): 时间表权限');
+  console.log('- Level 3 (LEVEL3): 时间表权限');
 }
 
 main()

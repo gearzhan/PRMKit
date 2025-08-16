@@ -39,15 +39,9 @@ const { Option } = Select;
 
 // 用户角色选项 - 新的角色层级系统
 const ROLE_OPTIONS = [
-  // Level 1 Admin - Full Access
-  { value: 'DIRECTOR', label: 'Director', color: 'red' },
-  { value: 'ASSOCIATE', label: 'Associate', color: 'red' },
-  { value: 'OFFICE_ADMIN', label: 'Office Admin', color: 'red' },
-  // Level 2 Manager - Time Sheets
-  { value: 'PROJECT_MANAGER', label: 'Project Manager', color: 'blue' },
-  // Level 3 Worker - Time Sheets
-  { value: 'JUNIOR_ARCHITECT', label: 'Junior Architect', color: 'green' },
-  { value: 'ARCHITECT', label: 'Architect', color: 'green' },
+  { value: 'LEVEL1', label: 'Level 1 Admin', color: 'red' },
+  { value: 'LEVEL2', label: 'Level 2 Manager', color: 'blue' },
+  { value: 'LEVEL3', label: 'Level 3 Worker', color: 'green' },
 ];
 
 
@@ -127,13 +121,9 @@ const AdminEmployeeList: React.FC = () => {
         total: employeeList.length,
         active: employeeList.filter((emp: Employee) => emp.isActive).length,
         inactive: employeeList.filter((emp: Employee) => !emp.isActive).length,
-        admins: employeeList.filter((emp: Employee) => 
-          ['DIRECTOR', 'ASSOCIATE', 'OFFICE_ADMIN'].includes(emp.role)
-        ).length,
-        managers: employeeList.filter((emp: Employee) => emp.role === 'PROJECT_MANAGER').length,
-        employees: employeeList.filter((emp: Employee) => 
-          ['JUNIOR_ARCHITECT', 'ARCHITECT'].includes(emp.role)
-        ).length,
+        admins: employeeList.filter((emp: Employee) => emp.role === 'LEVEL1').length,
+        managers: employeeList.filter((emp: Employee) => emp.role === 'LEVEL2').length,
+        employees: employeeList.filter((emp: Employee) => emp.role === 'LEVEL3').length,
       };
       setStatistics(stats);
     } catch (error) {
@@ -168,7 +158,7 @@ const AdminEmployeeList: React.FC = () => {
       // 新建模式，重置表单
       form.resetFields();
       form.setFieldsValue({
-        role: 'ARCHITECT',
+        role: 'LEVEL3',
         isActive: true,
       });
     }
