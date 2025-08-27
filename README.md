@@ -11,6 +11,7 @@ PRMKit是专业的企业工时管理系统，支持15分钟增量工时录入、
 - 📊 **数据可视化**: Recharts图表，支持钻取分析 ✅
 - 📈 **管理仪表板**: 月度统计、项目分析、工时趋势 ✅
 - 📋 **审批流程**: 批量审批、状态跟踪、历史记录 ✅
+- 👤 **员工详情**: 员工项目参与情况、工时统计钻取分析 ✅
 - 📁 **CSV管理**: 数据导入导出、模板下载、操作日志 ✅
 - 🔐 **安全认证**: JWT身份验证、数据权限隔离 ✅
 
@@ -298,6 +299,7 @@ npm run db:generate
 - ✅ **搜索功能**: 实时搜索、多条件筛选
 - ✅ **数据可视化**: Dashboard图表、项目钻取分析
 - ✅ **审批流程**: 批量审批、历史记录、状态跟踪
+- ✅ **员工管理**: 员工列表、详情查看、项目参与统计
 - ✅ **CSV管理**: 数据导入导出、模板下载、操作日志
 - ✅ **权限控制**: 数据隔离、个人数据过滤
 - ✅ **响应式UI**: 桌面端和移动端适配
@@ -314,11 +316,24 @@ npm run db:generate
 PRMKit/
 ├── api/                    # 后端代码
 │   ├── routes/            # API路由
+│   │   ├── admin-dashboard.ts  # 管理员仪表板API
+│   │   ├── auth.ts        # 认证相关API
+│   │   ├── csv.ts         # CSV数据管理API
+│   │   ├── projects.ts    # 项目管理API
+│   │   └── timesheets.ts  # 工时管理API
 │   ├── lib/               # 工具库
 │   └── app.ts             # Express应用
 ├── src/                   # 前端代码
 │   ├── components/        # React组件
 │   ├── pages/            # 页面组件
+│   │   ├── AdminApprovals.tsx     # 管理员审批页面
+│   │   ├── AdminDashboard.tsx     # 管理员仪表板
+│   │   ├── AdminEmployeeList.tsx  # 员工列表管理
+│   │   ├── CSVManagement.tsx      # CSV数据管理
+│   │   ├── EmployeeDrilldown.tsx  # 员工详情钻取页面
+│   │   ├── Login.tsx              # 登录页面
+│   │   ├── ProjectDrilldown.tsx   # 项目钻取分析
+│   │   └── Timesheets.tsx         # 工时录入页面
 │   ├── lib/              # 工具库
 │   ├── stores/           # 状态管理
 │   └── hooks/            # 自定义Hook
