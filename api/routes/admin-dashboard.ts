@@ -499,4 +499,164 @@ router.get('/project-drill/:projectName', authenticateToken, requireLevel1Admin,
   }
 });
 
+// 获取员工详情数据 - 员工参与的项目和工时统计
+router.get('/employee-drill/:employeeId', authenticateToken, requireLevel1Admin, async (req: AuthenticatedRequest, res: Response) => {
+  console.log('=== Admin Dashboard Employee Drill API Called ===');
+  console.log('User:', req.user);
+  console.log('Params:', req.params);
+  console.log('Query params:', req.query);
+  
+  try {
+    const { employeeId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    if (!employeeId) {
+      return res.status(400).json({ error: 'Employee ID is required' });
+    }
+    
+    console.log('Fetching employee drill data for:', { employeeId, startDate, endDate });
+    
+    // 构建日期过滤条件
+    let dateFilter = {};
+    if (startDate && endDate) {
+      dateFilter = {
+        date: {
+          gte: new Date(startDate as string),
+          lte: new Date(endDate as string),
+        },
+      };
+    }
+    
+    console.log('Date filter:', dateFilter);
+    
+    // 获取员工信息
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        position: true,
+      },
+    });
+    
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    
+    console.log('Found employee:', employee);
+    
+    // 获取员工的工时记录
+    const timesheets = await prisma.timesheet.findMany({
+      where: {
+        employeeId: employeeId,
+        ...dateFilter,
+      },
+      orderBy: {
+        date: 'asc',
+      },
+    });
+    
+    console.log('Found timesheets:', timesheets.length);
+    
+    // 获取所有相关项目信息
+    const projectIds = [...new Set(timesheets.map(t => t.projectId))];
+    const projects = await prisma.project.findMany({
+      where: {
+        id: { in: projectIds },
+      },
+      select: {
+        id: true,
+        name: true,
+        projectCode: true,
+      },
+    });
+    
+    // 创建项目ID到项目信息的映射
+    const projectMap = new Map(projects.map(p => [p.id, p]));
+    
+    // 按项目分组统计
+    const projectStats = new Map();
+    
+    timesheets.forEach(timesheet => {
+      const projectId = timesheet.projectId;
+      const project = projectMap.get(projectId);
+      
+      if (!project) return; // 跳过找不到项目信息的记录
+      
+      const projectName = project.name;
+      const projectCode = project.projectCode;
+      
+      if (!projectStats.has(projectId)) {
+        projectStats.set(projectId, {
+          projectId,
+          projectName,
+          projectCode,
+          totalHours: 0,
+          totalDays: new Set(),
+          firstDate: timesheet.date,
+          lastDate: timesheet.date,
+        });
+      }
+      
+      const stats = projectStats.get(projectId);
+      stats.totalHours += timesheet.hours;
+      stats.totalDays.add(timesheet.date.toISOString().split('T')[0]); // 按日期去重
+      
+      // 更新首次和最后工时日期
+      if (timesheet.date < stats.firstDate) {
+        stats.firstDate = timesheet.date;
+      }
+      if (timesheet.date > stats.lastDate) {
+        stats.lastDate = timesheet.date;
+      }
+    });
+    
+    // 转换为数组并计算总天数
+    const processedProjectStats = Array.from(projectStats.values()).map(stats => ({
+      ...stats,
+      totalDays: stats.totalDays.size, // 转换Set为数量
+    }));
+    
+    console.log('Processed project stats:', processedProjectStats.length);
+    
+    // 计算总体统计
+    const totalProjects = processedProjectStats.length;
+    const totalHours = processedProjectStats.reduce((sum, project) => sum + project.totalHours, 0);
+    const averageHoursPerProject = totalProjects > 0 ? totalHours / totalProjects : 0;
+    
+    const drillData = {
+      employee: {
+        id: employee.id,
+        name: employee.name,
+        email: employee.email,
+        role: employee.role,
+        position: employee.position,
+      },
+      projectStats: processedProjectStats,
+      summary: {
+        totalProjects,
+        totalHours: Math.round(totalHours * 100) / 100, // 保留2位小数
+        averageHoursPerProject: Math.round(averageHoursPerProject * 100) / 100,
+        dateRange: startDate && endDate ? { startDate, endDate } : null,
+      },
+    };
+    
+    console.log('Employee drill data summary:', {
+      employeeId: employee.id,
+      employeeName: employee.name,
+      totalProjects,
+      totalHours: drillData.summary.totalHours,
+    });
+    
+    res.json(drillData);
+  } catch (error) {
+    console.error('=== Admin Dashboard Employee Drill Error ===');
+    console.error('Error details:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' });
+  }
+});
+
 export default router;

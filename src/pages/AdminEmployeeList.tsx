@@ -20,6 +20,7 @@ import {
   Switch,
   Avatar,
 } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import PageLayout from '@/components/PageLayout';
 import {
   PlusOutlined,
@@ -30,6 +31,7 @@ import {
   TeamOutlined,
   MailOutlined,
   PhoneOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { ColumnsType } from 'antd/es/table';
 import api from '@/lib/api';
@@ -70,12 +72,15 @@ interface EmployeeFormData {
   isActive: boolean;
 }
 
+
+
 /**
  * 管理员员工列表页面
  * 提供员工的增删改查功能
  */
 const AdminEmployeeList: React.FC = () => {
   const { message } = App.useApp();
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -226,6 +231,11 @@ const AdminEmployeeList: React.FC = () => {
     }
   };
 
+  // 处理查看员工详情 - 跳转到新页面
+  const handleViewEmployeeDetails = (employee: Employee) => {
+    navigate(`/admin/employee/${employee.id}/drilldown`);
+  };
+
   // 获取角色标签颜色
   const getRoleColor = (role: string) => {
     const option = ROLE_OPTIONS.find(opt => opt.value === role);
@@ -335,10 +345,17 @@ const AdminEmployeeList: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 120,
+      width: 160,
       fixed: 'right',
       render: (_, record) => (
         <Space>
+          <Tooltip title="View Details">
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewEmployeeDetails(record)}
+            />
+          </Tooltip>
           <Tooltip title="Edit">
             <Button
               type="text"
@@ -569,6 +586,8 @@ const AdminEmployeeList: React.FC = () => {
           </Row>
         </Form>
       </Modal>
+
+
     </PageLayout>
   );
 };

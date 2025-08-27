@@ -14,6 +14,7 @@ import AdminApprovals from '@/pages/AdminApprovals';
 import AdminDashboard from '@/pages/AdminDashboard';
 import DataManagement from '@/pages/DataManagement';
 import ProjectDrilldown from '@/pages/ProjectDrilldown';
+import EmployeeDrilldown from '@/pages/EmployeeDrilldown';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { initializeAuth } from '@/stores/authStore';
 import 'antd/dist/reset.css';
@@ -196,6 +197,16 @@ export default function App() {
             element={
               <ProtectedRoute requiredRoles={['LEVEL1']}>
                 <ProjectDrilldown />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* 员工详情页面 - Level 1管理员 */}
+          <Route 
+            path="/admin/employee/:employeeId/drilldown" 
+            element={
+              <ProtectedRoute requiredRoles={['LEVEL1']}>
+                <EmployeeDrilldown />
               </ProtectedRoute>
             } 
           />
