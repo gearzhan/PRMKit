@@ -17,6 +17,7 @@ import {
   Tag,
   Tooltip,
   Empty,
+  Radio,
 } from 'antd';
 import {
   DownloadOutlined,
@@ -35,10 +36,9 @@ import type { UploadFile, UploadProps } from 'antd';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-const { confirm } = Modal;
 
 // 数据类型枚举
-type DataType = 'employees' | 'projects' | 'timesheets';
+type DataType = 'EMPLOYEE' | 'PROJECT' | 'TIMESHEET';
 
 // CSV导入日志接口
 interface CsvImportLog {
@@ -75,6 +75,13 @@ interface ValidationResult {
   }>;
   preview: any[];
   totalRows: number;
+  duplicates?: Array<{
+    row: number;
+    field: string;
+    value: string;
+    existingData: any;
+    newData: any;
+  }>;
 }
 
 /**
@@ -82,11 +89,11 @@ interface ValidationResult {
  * 提供CSV导入导出功能，支持员工、项目、工时数据的批量操作
  */
 const DataManagement: React.FC = () => {
-  // 获取App实例用于消息提示
-  const { message } = App.useApp();
+  // 获取App实例用于消息提示和模态框
+  const { message, modal } = App.useApp();
   
   // 状态管理
-  const [selectedDataType, setSelectedDataType] = useState<DataType>('employees');
+  const [selectedDataType, setSelectedDataType] = useState<DataType>('EMPLOYEE');
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
@@ -96,12 +103,15 @@ const DataManagement: React.FC = () => {
   const [showLogsModal, setShowLogsModal] = useState(false);
   const [selectedLog, setSelectedLog] = useState<CsvImportLog | null>(null);
   const [showLogDetailModal, setShowLogDetailModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicateData, setDuplicateData] = useState<any[]>([]);
+  const [duplicateDecisions, setDuplicateDecisions] = useState<{[key: string]: 'replace' | 'skip'}>({});
 
   // 数据类型选项
   const dataTypeOptions = [
-    { value: 'employees', label: 'Employees', icon: '👥' },
-    { value: 'projects', label: 'Projects', icon: '📋' },
-    { value: 'timesheets', label: 'Timesheets', icon: '⏰' },
+    { value: 'EMPLOYEE', label: 'Employees', icon: '👥' },
+    { value: 'PROJECT', label: 'Projects', icon: '📋' },
+    { value: 'TIMESHEET', label: 'Timesheets', icon: '⏰' },
   ];
 
   // 获取导入日志
@@ -123,10 +133,21 @@ const DataManagement: React.FC = () => {
     fetchImportLogs();
   }, []);
 
+  // 数据类型到路径的映射
+  const getDataTypePath = (dataType: DataType): string => {
+    const pathMap: Record<DataType, string> = {
+      'EMPLOYEE': 'employees',
+      'PROJECT': 'projects',
+      'TIMESHEET': 'timesheets'
+    };
+    return pathMap[dataType];
+  };
+
   // 处理CSV导出
   const handleExport = async () => {
     try {
-      const response = await api.get(`/csv/export/${selectedDataType}`, {
+      const dataTypePath = getDataTypePath(selectedDataType);
+      const response = await api.get(`/csv/export/${dataTypePath}`, {
         responseType: 'blob',
       });
       
@@ -151,7 +172,8 @@ const DataManagement: React.FC = () => {
   // 处理模板下载
   const handleDownloadTemplate = async () => {
     try {
-      const response = await api.get(`/csv/template/${selectedDataType}`, {
+      const dataTypePath = getDataTypePath(selectedDataType);
+      const response = await api.get(`/csv/template/${dataTypePath}`, {
         responseType: 'blob',
       });
       
@@ -210,7 +232,7 @@ const DataManagement: React.FC = () => {
     try {
       setUploading(true);
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('csvFile', file);
       formData.append('dataType', selectedDataType);
 
       const response = await api.post('/csv/import/validate', formData, {
@@ -219,11 +241,141 @@ const DataManagement: React.FC = () => {
         },
       });
 
-      setValidationResult(response.data);
-      setShowValidationModal(true);
+      // 将嵌套的错误结构转换为扁平化格式
+      const flattenedErrors = response.data.errors.flatMap((errorGroup: any) => 
+        errorGroup.errors.map((error: any) => ({
+          row: errorGroup.rowNumber,
+          message: error.message,
+          data: error.value
+        }))
+      );
+
+      // 根据errorRows数量设置isValid属性
+      const validationData = {
+        ...response.data,
+        errors: flattenedErrors,
+        isValid: response.data.errorRows === 0,
+        duplicates: response.data.duplicates || []
+      };
+      
+      setValidationResult(validationData);
+      
+      // 如果有重复数据，显示重复数据处理模态框
+      if (validationData.duplicates && validationData.duplicates.length > 0) {
+        setDuplicateData(validationData.duplicates);
+        setShowDuplicateModal(true);
+      } else {
+        setShowValidationModal(true);
+      }
     } catch (error: any) {
       console.error('文件验证失败:', error);
       message.error(error.response?.data?.error || '文件验证失败');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // 处理重复数据决策
+  const handleDuplicateDecision = (duplicateKey: string, decision: 'replace' | 'skip') => {
+    setDuplicateDecisions(prev => ({
+      ...prev,
+      [duplicateKey]: decision
+    }));
+  };
+
+  // 批量替换所有重复数据
+  const handleReplaceAll = () => {
+    const allDecisions: { [key: string]: 'replace' | 'skip' } = {};
+    duplicateData.forEach((duplicate, index) => {
+      const duplicateKey = `${duplicate.row || 'unknown'}-${duplicate.field || 'field'}-${index}`;
+      allDecisions[duplicateKey] = 'replace';
+    });
+    setDuplicateDecisions(allDecisions);
+    message.success(`已将所有 ${duplicateData.length} 个重复项设置为替换`);
+  };
+
+  // 批量跳过所有重复数据
+  const handleSkipAll = () => {
+    const allDecisions: { [key: string]: 'replace' | 'skip' } = {};
+    duplicateData.forEach((duplicate, index) => {
+      const duplicateKey = `${duplicate.row || 'unknown'}-${duplicate.field || 'field'}-${index}`;
+      allDecisions[duplicateKey] = 'skip';
+    });
+    setDuplicateDecisions(allDecisions);
+    message.success(`已将所有 ${duplicateData.length} 个重复项设置为跳过`);
+  };
+
+  // 确认重复数据处理并继续导入
+  const handleConfirmDuplicates = async () => {
+    if (!validationResult || fileList.length === 0) {
+      message.error('请先验证文件');
+      return;
+    }
+
+    const file = fileList[0].originFileObj;
+    if (!file) {
+      message.error('文件读取失败');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('csvFile', file);
+      formData.append('dataType', selectedDataType);
+      
+      // 添加重复数据决策到请求中
+      if (Object.keys(duplicateDecisions).length > 0) {
+        formData.append('duplicateDecisions', JSON.stringify(duplicateDecisions));
+      }
+
+      const response = await api.post('/csv/import/execute', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const result = response.data;
+      if (result.status === 'SUCCESS') {
+        message.success(`导入成功！共导入 ${result.successRows} 条数据`);
+      } else if (result.status === 'PARTIAL') {
+        message.warning(`部分导入成功！成功 ${result.successRows} 条，失败 ${result.errorRows} 条`);
+      } else {
+        message.error(`导入失败！失败 ${result.errorRows} 条`);
+      }
+
+      // 清理状态
+      setFileList([]);
+      setValidationResult(null);
+      setShowValidationModal(false);
+      setShowDuplicateModal(false);
+      setDuplicateData([]);
+      setDuplicateDecisions({});
+      
+      // 刷新日志
+      fetchImportLogs();
+    } catch (error: any) {
+      console.error('导入失败:', error);
+      let errorMessage = '导入失败';
+      
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = `导入失败: ${error.message}`;
+      }
+      
+      // 如果是网络错误或服务器错误，提供更友好的提示
+      if (error.code === 'NETWORK_ERROR' || error.response?.status >= 500) {
+        errorMessage = '服务器连接失败，请稍后重试';
+      } else if (error.response?.status === 413) {
+        errorMessage = '文件过大，请选择较小的文件';
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response.data?.error || '请求参数错误，请检查文件格式';
+      }
+      
+      message.error(errorMessage);
     } finally {
       setUploading(false);
     }
@@ -242,7 +394,7 @@ const DataManagement: React.FC = () => {
       return;
     }
 
-    confirm({
+    modal.confirm({
       title: '确认导入',
       icon: <ExclamationCircleOutlined />,
       content: `确定要导入 ${validationResult.totalRows} 条${dataTypeOptions.find(opt => opt.value === selectedDataType)?.label}数据吗？`,
@@ -250,8 +402,13 @@ const DataManagement: React.FC = () => {
         try {
           setUploading(true);
           const formData = new FormData();
-          formData.append('file', file);
+          formData.append('csvFile', file);
           formData.append('dataType', selectedDataType);
+          
+          // 如果有重复数据决策，添加到请求中
+          if (Object.keys(duplicateDecisions).length > 0) {
+            formData.append('duplicateDecisions', JSON.stringify(duplicateDecisions));
+          }
 
           const response = await api.post('/csv/import/execute', formData, {
             headers: {
@@ -272,12 +429,34 @@ const DataManagement: React.FC = () => {
           setFileList([]);
           setValidationResult(null);
           setShowValidationModal(false);
+          setShowDuplicateModal(false);
+          setDuplicateData([]);
+          setDuplicateDecisions({});
           
           // 刷新日志
           fetchImportLogs();
         } catch (error: any) {
           console.error('导入失败:', error);
-          message.error(error.response?.data?.error || '导入失败');
+          let errorMessage = '导入失败';
+          
+          if (error.response?.data?.error) {
+            errorMessage = error.response.data.error;
+          } else if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+          } else if (error.message) {
+            errorMessage = `导入失败: ${error.message}`;
+          }
+          
+          // 如果是网络错误或服务器错误，提供更友好的提示
+          if (error.code === 'NETWORK_ERROR' || error.response?.status >= 500) {
+            errorMessage = '服务器连接失败，请稍后重试';
+          } else if (error.response?.status === 413) {
+            errorMessage = '文件过大，请选择较小的文件';
+          } else if (error.response?.status === 400) {
+            errorMessage = error.response.data?.error || '请求参数错误，请检查文件格式';
+          }
+          
+          message.error(errorMessage);
         } finally {
           setUploading(false);
         }
@@ -357,6 +536,16 @@ const DataManagement: React.FC = () => {
           FAILED: { color: 'red', icon: <CloseCircleOutlined /> },
         };
         const config = statusConfig[status as keyof typeof statusConfig];
+        
+        // 添加空值检查，防止undefined错误
+        if (!config) {
+          return (
+            <Tag color="default">
+              {status}
+            </Tag>
+          );
+        }
+        
         return (
           <Tag color={config.color} icon={config.icon}>
             {status}
@@ -584,8 +773,14 @@ const DataManagement: React.FC = () => {
                 <Table
                   columns={validationColumns}
                   dataSource={validationResult.errors}
-                  rowKey={(record, index) => `${record.row}-${index}`}
-                  pagination={{ pageSize: 10 }}
+                  rowKey={(record) => `validation-error-${record.row ?? Math.random()}`}
+                  pagination={{
+                    pageSize: 20,
+                    pageSizeOptions: ['20', '50'],
+                    showSizeChanger: true,
+                    showQuickJumper: true,
+                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                  }}
                   size="small"
                 />
               </div>
@@ -618,8 +813,123 @@ const DataManagement: React.FC = () => {
           dataSource={importLogs}
           rowKey="id"
           loading={logsLoading}
-          pagination={{ pageSize: 10 }}
+          pagination={{
+            pageSize: 20,
+            pageSizeOptions: ['20', '50'],
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+          }}
         />
+      </Modal>
+
+      {/* 重复数据对比模态框 */}
+      <Modal
+        title="Duplicate Data Found"
+        open={showDuplicateModal}
+        onCancel={() => setShowDuplicateModal(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setShowDuplicateModal(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="confirm"
+            type="primary"
+            onClick={handleConfirmDuplicates}
+            disabled={duplicateData.some((dup, index) => !duplicateDecisions[`${dup.row || 'unknown'}-${dup.field || 'field'}-${index}`])}
+          >
+            Continue with Decisions
+          </Button>,
+        ]}
+        width={1000}
+      >
+        <div className="space-y-4">
+          <Alert
+            message="Duplicate entries detected"
+            description={`Found ${duplicateData.length} duplicate entries. Please decide whether to replace or skip each one.`}
+            type="warning"
+            showIcon
+          />
+          
+          {/* 批量操作按钮 */}
+          <div className="flex gap-3 p-4 bg-gray-50 rounded-lg border">
+            <div className="flex-1">
+              <Text strong className="text-gray-700">Batch Operations:</Text>
+              <div className="text-sm text-gray-500 mt-1">
+                Apply the same action to all {duplicateData.length} duplicate entries
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="default"
+                icon={<span className="text-blue-600">🔄</span>}
+                onClick={handleReplaceAll}
+                className="border-blue-300 text-blue-600 hover:bg-blue-50"
+              >
+                Replace All
+              </Button>
+              <Button
+                type="default"
+                icon={<span className="text-gray-600">⏭️</span>}
+                onClick={handleSkipAll}
+                className="border-gray-300 text-gray-600 hover:bg-gray-50"
+              >
+                Skip All
+              </Button>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            {duplicateData.map((duplicate, index) => {
+              const duplicateKey = `${duplicate.row || 'unknown'}-${duplicate.field || 'field'}-${index}`;
+              const decision = duplicateDecisions[duplicateKey];
+              
+              return (
+                <Card key={duplicateKey} size="small" className="border-l-4 border-l-orange-400">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <Title level={5} className="mb-0">
+                        Row {duplicate.row} - Duplicate {duplicate.field}: {duplicate.value}
+                      </Title>
+                      <Radio.Group
+                        name={duplicateKey}
+                        value={decision}
+                        onChange={(e) => handleDuplicateDecision(duplicateKey, e.target.value)}
+                      >
+                        <Radio.Button value="replace" className="text-blue-600">
+                          Replace
+                        </Radio.Button>
+                        <Radio.Button value="skip" className="text-gray-600">
+                          Skip
+                        </Radio.Button>
+                      </Radio.Group>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-red-50 p-3 rounded border">
+                        <Text strong className="text-red-700">Existing Data:</Text>
+                        <div className="mt-2 text-sm">
+                          <pre className="whitespace-pre-wrap">
+                            {JSON.stringify(duplicate.existingData, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-green-50 p-3 rounded border">
+                        <Text strong className="text-green-700">New Data:</Text>
+                        <div className="mt-2 text-sm">
+                          <pre className="whitespace-pre-wrap">
+                            {JSON.stringify(duplicate.newData, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
       </Modal>
 
       {/* 日志详情模态框 */}
@@ -689,7 +999,13 @@ const DataManagement: React.FC = () => {
                   ]}
                   dataSource={selectedLog.errors}
                   rowKey="id"
-                  pagination={{ pageSize: 10 }}
+                  pagination={{
+                    pageSize: 20,
+                    pageSizeOptions: ['20', '50'],
+                    showSizeChanger: true,
+                    showQuickJumper: true,
+                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                  }}
                   size="small"
                 />
               </div>

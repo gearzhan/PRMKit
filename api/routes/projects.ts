@@ -8,7 +8,7 @@ const router = Router();
 // 获取项目列表
 router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { page = '1', limit = '10', status, search } = req.query;
+    const { page = '1', limit = '10', status, search, sortBy = 'projectCode', sortOrder = 'desc' } = req.query;
     
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
@@ -31,6 +31,36 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
       ];
     }
     
+    // 构建排序条件
+    let orderBy: any = {};
+    const sortField = sortBy as string;
+    const sortDirection = sortOrder as string;
+    
+    // 支持的排序字段映射
+    const sortFieldMap: { [key: string]: string } = {
+      'projectCode': 'projectCode',
+      'name': 'name', 
+      'nickname': 'nickname',
+      'status': 'status',
+      'startDate': 'startDate',
+      'endDate': 'endDate',
+      'timesheets': 'timesheets' // 特殊处理
+    };
+    
+    if (sortField === 'timesheets') {
+      // 对于timesheets计数排序，需要特殊处理
+      orderBy = {
+        timesheets: {
+          _count: sortDirection === 'asc' ? 'asc' : 'desc'
+        }
+      };
+    } else if (sortFieldMap[sortField]) {
+      orderBy[sortFieldMap[sortField]] = sortDirection === 'asc' ? 'asc' : 'desc';
+    } else {
+      // 默认排序
+      orderBy = { projectCode: 'desc' };
+    }
+    
     const [projects, total] = await Promise.all([
       prisma.project.findMany({
         where,
@@ -41,9 +71,7 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
             },
           },
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
+        orderBy,
         skip,
         take: limitNum,
       }),

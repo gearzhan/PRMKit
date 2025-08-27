@@ -6,7 +6,7 @@ import Dashboard from '@/pages/Dashboard';
 import TimesheetEntry from '@/pages/TimesheetEntry';
 import Timesheets from '@/pages/Timesheets';
 import Home from '@/pages/Home';
-import ProjectList from '@/pages/ProjectList';
+
 import AdminProjectList from '@/pages/AdminProjectList';
 import AdminEmployeeList from '@/pages/AdminEmployeeList';
 import AdminStagingManagement from '@/pages/AdminStagingManagement';
@@ -109,15 +109,7 @@ export default function App() {
             } 
           />
           
-          {/* 项目列表路由 - L3员工可访问 */}
-          <Route 
-            path="/projects" 
-            element={
-              <ProtectedRoute requiredRoles={['LEVEL1', 'LEVEL2', 'LEVEL3']}>
-                <ProjectList />
-              </ProtectedRoute>
-            } 
-          />
+
           
           {/* 审批管理路由 - Level 1管理员 */}
           <Route 

@@ -212,7 +212,7 @@ export const useAdminDashboardStore = create<AdminDashboardState & AdminDashboar
       try {
         set({ drillLoading: true, drillError: null });
         
-        const response = await adminDashboardAPI.getProjectDrill(projectName, month);
+        const response = await adminDashboardAPI.getProjectDrill(projectName, { month });
         
         set({
           drillData: response.data,

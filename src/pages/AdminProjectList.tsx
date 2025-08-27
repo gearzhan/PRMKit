@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Table,
   Button,
@@ -84,6 +85,7 @@ interface ProjectFormData {
  */
 const AdminProjectList: React.FC = () => {
   const { message } = App.useApp();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -97,22 +99,48 @@ const AdminProjectList: React.FC = () => {
     completed: 0,
     suspended: 0,
   });
+  
+  // 分页状态管理
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 20,
+    total: 0,
+  });
+  
+  // 排序状态
+  const [sortBy, setSortBy] = useState('projectCode');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // 获取项目列表
-  const fetchProjects = async () => {
+  const fetchProjects = async (page = 1, size = 20) => {
     setLoading(true);
     try {
-      const params: any = {};
+      const params: any = {
+        page,
+        limit: size,
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+      };
       if (searchText) params.search = searchText;
       if (statusFilter) params.status = statusFilter;
       
       const response = await api.get('/projects', { params });
       const projectList = response.data.projects || [];
-      setProjects(projectList);
+      const paginationData = response.data.pagination || {};
+      const total = paginationData.total || projectList.length;
       
-      // 计算统计数据
+      // 服务器端已经处理了排序，直接使用返回的数据
+      setProjects(projectList);
+      setPagination(prev => ({
+        ...prev,
+        current: page,
+        pageSize: size,
+        total,
+      }));
+      
+      // 计算统计数据 - 使用总数而不是当前页面数据
       const stats = {
-        total: projectList.length,
+        total,
         active: projectList.filter((p: Project) => p.status === 'ACTIVE').length,
         completed: projectList.filter((p: Project) => p.status === 'COMPLETED').length,
         suspended: projectList.filter((p: Project) => p.status === 'SUSPENDED').length,
@@ -128,8 +156,19 @@ const AdminProjectList: React.FC = () => {
 
   // 组件挂载时获取数据
   useEffect(() => {
-    fetchProjects();
-  }, [searchText, statusFilter]);
+    fetchProjects(1, pagination.pageSize);
+  }, [searchText, statusFilter, sortBy, sortOrder]);
+  
+  // 处理分页变化
+  const handleTableChange = (paginationConfig: any, filters: any, sorter: any) => {
+    // 处理排序变化
+    if (sorter && sorter.field) {
+      setSortBy(sorter.field);
+      setSortOrder(sorter.order === 'ascend' ? 'asc' : 'desc');
+    }
+    
+    fetchProjects(paginationConfig.current, paginationConfig.pageSize);
+  };
 
   // 打开新建/编辑模态框
   const openModal = (project?: Project) => {
@@ -223,6 +262,12 @@ const AdminProjectList: React.FC = () => {
     return option?.label || status;
   };
 
+  // 处理项目名称点击，跳转到项目钻取页面
+  const handleProjectNameClick = (projectName: string) => {
+    // 跳转到项目钻取页面，时间范围从项目第一条timesheet记录到今天
+    navigate(`/admin/project/drill/drilldown?projectName=${encodeURIComponent(projectName)}`);
+  };
+
   // 表格列定义
   const columns: ColumnsType<Project> = [
     {
@@ -231,6 +276,8 @@ const AdminProjectList: React.FC = () => {
       key: 'projectCode',
       width: 120,
       fixed: 'left',
+      sortDirections: ['descend', 'ascend'],
+      sortOrder: sortBy === 'projectCode' ? (sortOrder === 'asc' ? 'ascend' : 'descend') : null,
     },
     {
       title: 'Project Name',
@@ -240,9 +287,26 @@ const AdminProjectList: React.FC = () => {
       ellipsis: {
         showTitle: false,
       },
+      sortDirections: ['ascend', 'descend'],
+      sortOrder: sortBy === 'name' ? (sortOrder === 'asc' ? 'ascend' : 'descend') : null,
       render: (text) => (
-        <Tooltip placement="topLeft" title={text}>
-          {text}
+        <Tooltip placement="topLeft" title={`${text} (Click to view project drill)`}>
+          <span
+            onClick={() => handleProjectNameClick(text)}
+            style={{
+              color: '#1890ff',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#40a9ff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#1890ff';
+            }}
+          >
+            {text}
+          </span>
         </Tooltip>
       ),
     },
@@ -254,6 +318,8 @@ const AdminProjectList: React.FC = () => {
       ellipsis: {
         showTitle: false,
       },
+      sortDirections: ['ascend', 'descend'],
+      sortOrder: sortBy === 'nickname' ? (sortOrder === 'asc' ? 'ascend' : 'descend') : null,
       render: (text) => (
         text ? (
           <Tag color="orange">
@@ -269,6 +335,8 @@ const AdminProjectList: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 100,
+      sortDirections: ['ascend', 'descend'],
+      sortOrder: sortBy === 'status' ? (sortOrder === 'asc' ? 'ascend' : 'descend') : null,
       render: (status) => (
         <Tag color={getStatusColor(status)}>
           {getStatusText(status)}
@@ -280,6 +348,8 @@ const AdminProjectList: React.FC = () => {
       dataIndex: 'startDate',
       key: 'startDate',
       width: 120,
+      sortDirections: ['ascend', 'descend'],
+      sortOrder: sortBy === 'startDate' ? (sortOrder === 'asc' ? 'ascend' : 'descend') : null,
       render: (date) => dayjs(date).format('YYYY-MM-DD'),
     },
     {
@@ -287,13 +357,16 @@ const AdminProjectList: React.FC = () => {
       dataIndex: 'endDate',
       key: 'endDate',
       width: 120,
+      sortDirections: ['ascend', 'descend'],
+      sortOrder: sortBy === 'endDate' ? (sortOrder === 'asc' ? 'ascend' : 'descend') : null,
       render: (date) => date ? dayjs(date).format('YYYY-MM-DD') : '-',
     },
-
     {
       title: 'Timesheets',
       key: 'timesheets',
       width: 100,
+      sortDirections: ['ascend', 'descend'],
+      sortOrder: sortBy === 'timesheets' ? (sortOrder === 'asc' ? 'ascend' : 'descend') : null,
       render: (_, record) => (
         <span>
           <CalendarOutlined /> {record._count.timesheets}
@@ -430,10 +503,15 @@ const AdminProjectList: React.FC = () => {
           loading={loading}
           scroll={{ x: 1200 }}
           pagination={{
+            current: pagination.current,
+            pageSize: pagination.pageSize,
+            total: pagination.total,
+            pageSizeOptions: ['20', '50'],
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
           }}
+          onChange={handleTableChange}
         />
       </Card>
 

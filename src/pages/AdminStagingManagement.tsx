@@ -409,9 +409,10 @@ const AdminStagingManagement: React.FC = () => {
             pagination={{
               total: stages.length,
               pageSize: 20,
+              pageSizeOptions: ['20', '50'],
               showSizeChanger: true,
               showQuickJumper: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} stages`,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
             }}
             scroll={{ x: 800 }}
           />

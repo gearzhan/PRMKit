@@ -12,7 +12,10 @@ import {
   Space,
   Statistic,
   Divider,
+  DatePicker,
 } from 'antd';
+import type { Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import {
   ArrowLeftOutlined,
   ProjectOutlined,
@@ -20,6 +23,7 @@ import {
   PieChartOutlined,
   TeamOutlined,
   ClockCircleOutlined,
+  CalendarOutlined,
 } from '@ant-design/icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { adminDashboardAPI } from '@/lib/api';
@@ -47,6 +51,8 @@ interface ProjectDrillData {
     stageCount: number;
   }>;
   month: string;
+  firstTimesheetDate?: string; // 当前日期范围内的第一条timesheet日期
+  globalFirstTimesheetDate?: string; // 项目全局第一条timesheet日期
 }
 
 // 饼图颜色配置
@@ -62,32 +68,79 @@ const ProjectDrilldown: React.FC = () => {
   const navigate = useNavigate();
   
   // 从URL参数获取项目名称和月份
-  const projectName = searchParams.get('name') || '';
+  const projectName = searchParams.get('projectName') || searchParams.get('name') || '';
   const month = searchParams.get('month') || '';
+  
+  // 调试日志：输出URL参数
+  console.log('ProjectDrilldown初始化参数:', { 
+    projectId, 
+    projectName, 
+    month, 
+    searchParams: Object.fromEntries(searchParams.entries()) 
+  });
   
   // 状态管理
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drillData, setDrillData] = useState<ProjectDrillData | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  // 处理用户手动选择日期范围的情况
+  const [isUserDateSelection, setIsUserDateSelection] = useState(false);
+  // 标识初始化是否完成
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // 获取项目钻取数据
   const fetchDrillData = async () => {
-    if (!projectName || !month) {
-      setError('Missing project name or month parameter');
-      setLoading(false);
-      return;
-    }
-
+    if (!projectName) return;
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError(null);
+      let response;
       
-      const response = await adminDashboardAPI.getProjectDrill(projectName, month);
+      // 优先使用dateRange，其次使用URL中的month参数，最后直接获取项目数据（无时间限制）
+      if (dateRange && dateRange[0] && dateRange[1]) {
+        // 使用日期范围参数
+        const startDate = dateRange[0].format('YYYY-MM-DD');
+        const endDate = dateRange[1].format('YYYY-MM-DD');
+        
+        console.log('使用日期范围获取数据:', { startDate, endDate });
+        response = await adminDashboardAPI.getProjectDrill(projectName, {
+          startDate,
+          endDate
+        });
+      } else if (month) {
+         // 使用URL中的month参数
+         console.log('使用month参数获取数据:', month);
+         response = await adminDashboardAPI.getProjectDrill(projectName, {
+           month
+         });
+       } else {
+         // 没有时间参数时，直接获取项目数据（无时间限制）
+         console.log('没有时间参数，直接获取项目数据');
+         response = await adminDashboardAPI.getProjectDrill(projectName, {});
+       }
+      
+      // 验证响应数据结构
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid response format');
+      }
+      
+      console.log('设置钻取数据:', response);
       setDrillData(response);
+      
+      // 如果没有dateRange且有globalFirstTimesheetDate，自动设置dateRange为从该日期到今天
+      if (!dateRange && response.globalFirstTimesheetDate && !isUserDateSelection) {
+        const firstDate = dayjs(response.globalFirstTimesheetDate);
+        const today = dayjs();
+        console.log('自动设置日期范围:', { from: firstDate.format('YYYY-MM-DD'), to: today.format('YYYY-MM-DD') });
+        setDateRange([firstDate, today]);
+      }
     } catch (err: any) {
-      console.error('获取项目钻取数据失败:', err);
-      setError(err.response?.data?.error || 'Failed to fetch project drill data');
+      console.error('Failed to fetch drill data:', err);
+      setError(err.response?.data?.message || 'Failed to load project drill data');
     } finally {
       setLoading(false);
     }
@@ -153,10 +206,39 @@ const ProjectDrilldown: React.FC = () => {
     navigate(`/admin/dashboard?month=${month}`);
   };
 
-  // 组件挂载时获取数据
+  // 初始化日期范围
   useEffect(() => {
-    fetchDrillData();
-  }, [projectName, month]);
+    // 如果URL中有month参数且dateRange未初始化，则初始化dateRange
+    if (month && !dateRange && !isInitialized) {
+      console.log('从URL month参数初始化日期范围:', month);
+      const monthStart = dayjs(month, 'YYYY-MM').startOf('month');
+      const monthEnd = dayjs(month, 'YYYY-MM').endOf('month');
+      setDateRange([monthStart, monthEnd]);
+      setIsInitialized(true);
+    } else if (!month && !isInitialized) {
+      // 如果没有month参数，直接标记为已初始化，允许获取数据
+      console.log('没有month参数，直接标记为已初始化');
+      setIsInitialized(true);
+    }
+  }, [month, dateRange, isInitialized]);
+  
+  // 获取数据
+  useEffect(() => {
+    // 确保在初始化完成且有projectName的情况下获取数据
+    // 移除对dateRange的依赖，允许在没有dateRange时也能获取数据
+    if (projectName && isInitialized && !isUserDateSelection) {
+      console.log('触发数据获取:', { projectName, month, hasDateRange: !!dateRange, isInitialized });
+      fetchDrillData();
+    }
+  }, [projectName, isInitialized]);
+
+  // 当日期范围改变时重新获取数据
+  useEffect(() => {
+    if (projectName && dateRange && isUserDateSelection && isInitialized) {
+      console.log('用户手动选择日期范围，重新获取数据');
+      fetchDrillData();
+    }
+  }, [dateRange, isUserDateSelection, isInitialized]);
 
   // 计算总工时
   const totalProjectHours = drillData?.stageStats.reduce((sum, stage) => sum + stage.totalHours, 0) || 0;
@@ -273,7 +355,20 @@ const ProjectDrilldown: React.FC = () => {
             </Title>
             <Space split={<Divider type="vertical" />}>
               <Text type="secondary">Code: {drillData?.project.projectCode}</Text>
-              <Text type="secondary">Month: {drillData?.month}</Text>
+              <div>
+                <Text type="secondary" className="mr-2">Date Range:</Text>
+                <DatePicker.RangePicker
+                  value={dateRange}
+                  onChange={(dates) => {
+                    setIsUserDateSelection(true);
+                    setDateRange(dates);
+                  }}
+                  format="YYYY-MM-DD"
+                  placeholder={['Start Date', 'End Date']}
+                  size="small"
+                  allowClear
+                />
+              </div>
             </Space>
           </div>
           <div>
@@ -320,12 +415,10 @@ const ProjectDrilldown: React.FC = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="Approval Rate"
-              value={approvalRate}
-              prefix={<PieChartOutlined />}
-              valueStyle={{ color: approvalRate >= 80 ? '#52c41a' : approvalRate >= 60 ? '#faad14' : '#ff4d4f' }}
-              suffix="%"
-              precision={1}
+              title="First Timesheet Date"
+              value={drillData?.globalFirstTimesheetDate ? dayjs(drillData.globalFirstTimesheetDate).format('YYYY-MM-DD') : 'No data'}
+              prefix={<CalendarOutlined />}
+              valueStyle={{ color: '#1890ff' }}
             />
           </Card>
         </Col>

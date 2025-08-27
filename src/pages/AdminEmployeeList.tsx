@@ -375,7 +375,7 @@ const AdminEmployeeList: React.FC = () => {
 
       {/* 统计卡片 */}
       <Row gutter={16} className="mb-6">
-        <Col span={4}>
+        <Col span={8}>
           <Card>
             <Statistic
               title="Total Employees"
@@ -384,7 +384,7 @@ const AdminEmployeeList: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col span={4}>
+        <Col span={8}>
           <Card>
             <Statistic
               title="Active Users"
@@ -393,39 +393,12 @@ const AdminEmployeeList: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col span={4}>
+        <Col span={8}>
           <Card>
             <Statistic
               title="Inactive Users"
               value={statistics.inactive}
               valueStyle={{ color: '#ff4d4f' }}
-            />
-          </Card>
-        </Col>
-        <Col span={4}>
-          <Card>
-            <Statistic
-              title="Admins"
-              value={statistics.admins}
-              valueStyle={{ color: '#f5222d' }}
-            />
-          </Card>
-        </Col>
-        <Col span={4}>
-          <Card>
-            <Statistic
-              title="Managers"
-              value={statistics.managers}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col span={4}>
-          <Card>
-            <Statistic
-              title="Employees"
-              value={statistics.employees}
-              valueStyle={{ color: '#52c41a' }}
             />
           </Card>
         </Col>
@@ -481,6 +454,8 @@ const AdminEmployeeList: React.FC = () => {
           loading={loading}
           scroll={{ x: 1400 }}
           pagination={{
+            pageSize: 20,
+            pageSizeOptions: ['20', '50'],
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,

@@ -376,9 +376,9 @@ export const adminDashboardAPI = {
   },
   
   // 获取项目钻取数据
-  getProjectDrill: async (projectName: string, month: string) => {
+  getProjectDrill: async (projectName: string, params: { month?: string; startDate?: string; endDate?: string }) => {
     const response = await api.get(`/admin/dashboard/project-drill/${encodeURIComponent(projectName)}`, {
-      params: { month },
+      params,
     });
     return response.data;
   },

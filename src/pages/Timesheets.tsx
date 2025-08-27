@@ -84,7 +84,7 @@ const Timesheets: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(100);
+  const [pageSize, setPageSize] = useState(20);
   
   // 筛选条件 - 设置默认日期范围为当月
   const [filters, setFilters] = useState({
@@ -547,15 +547,12 @@ const Timesheets: React.FC = () => {
             pageSize,
             total,
             showSizeChanger: true,
-            showQuickJumper: false,
-            pageSizeOptions: ['100', '200'],
-            showTotal: (total, range) => {
-              const totalPages = Math.ceil(total / pageSize);
-              return `页数${currentPage} / ${totalPages}`;
-            },
+            showQuickJumper: true,
+            pageSizeOptions: ['20', '50'],
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
             onChange: (page, size) => {
               setCurrentPage(page);
-              setPageSize(size || 100);
+              setPageSize(size || 20);
             },
           }}
           scroll={{ x: 1200 }}

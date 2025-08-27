@@ -294,18 +294,39 @@ router.get('/project-drill/:projectName', authenticateToken, requireLevel1Admin,
   
   try {
     const { projectName } = req.params;
-    const { month } = req.query;
+    const { month, startDate: startDateParam, endDate: endDateParam } = req.query;
     
-    if (!month || typeof month !== 'string') {
-      return res.status(400).json({ error: 'Month parameter is required (format: YYYY-MM)' });
+    let startDate: Date;
+    let endDate: Date;
+    
+    // 支持新的日期范围参数或向后兼容月份参数，如果都没有则返回所有数据
+    let hasTimeFilter = false;
+    
+    if (startDateParam && endDateParam && typeof startDateParam === 'string' && typeof endDateParam === 'string') {
+      // 使用新的日期范围参数
+      startDate = new Date(startDateParam);
+      endDate = new Date(endDateParam);
+      
+      // 设置结束日期为当天的23:59:59
+      endDate.setHours(23, 59, 59, 999);
+      hasTimeFilter = true;
+      
+      console.log('Using date range parameters:', { startDate, endDate });
+    } else if (month && typeof month === 'string') {
+      // 向后兼容：使用月份参数
+      const [year, monthNum] = month.split('-').map(Number);
+      startDate = new Date(year, monthNum - 1, 1);
+      endDate = new Date(year, monthNum, 0, 23, 59, 59, 999);
+      hasTimeFilter = true;
+      
+      console.log('Using month parameter:', { month, startDate, endDate });
+    } else {
+      // 没有时间参数时，返回所有数据
+      console.log('No time parameters provided, fetching all project data');
+      hasTimeFilter = false;
     }
     
-    console.log('Fetching project drill data for:', { projectName, month });
-    
-    // 解析月份参数
-    const [year, monthNum] = month.split('-').map(Number);
-    const startDate = new Date(year, monthNum - 1, 1);
-    const endDate = new Date(year, monthNum, 0, 23, 59, 59, 999);
+    console.log('Fetching project drill data for:', { projectName, hasTimeFilter, startDate, endDate });
     
     // 查找项目详情
     const project = await prisma.project.findFirst({
@@ -314,12 +335,12 @@ router.get('/project-drill/:projectName', authenticateToken, requireLevel1Admin,
       },
       include: {
           timesheets: {
-            where: {
+            where: hasTimeFilter ? {
               date: {
                 gte: startDate,
                 lte: endDate,
               },
-            },
+            } : {},
           include: {
             employee: {
               select: {
@@ -427,9 +448,33 @@ router.get('/project-drill/:projectName', authenticateToken, requireLevel1Admin,
       }))
       .sort((a, b) => b.totalHours - a.totalHours);
     
+    // 获取项目的全局第一条timesheet记录日期（不受日期范围限制）
+    const globalFirstTimesheet = await prisma.timesheet.findFirst({
+      where: {
+        projectId: project.id,
+      },
+      orderBy: {
+        date: 'asc',
+      },
+      select: {
+        date: true,
+      },
+    });
+    
+    const globalFirstTimesheetDate = globalFirstTimesheet ? globalFirstTimesheet.date : null;
+    
+    // 获取当前日期范围内的第一条timesheet记录日期（用于其他统计）
+    let firstTimesheetDate = null;
+    if (project.timesheets.length > 0) {
+      const sortedTimesheets = project.timesheets.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      firstTimesheetDate = sortedTimesheets[0].date;
+    }
+    
     console.log('Processed drill data:', {
       stageStatsCount: processedStageStats.length,
       employeeStatsCount: processedEmployeeStats.length,
+      firstTimesheetDate,
+      globalFirstTimesheetDate,
     });
     
     const drillData = {
@@ -440,6 +485,8 @@ router.get('/project-drill/:projectName', authenticateToken, requireLevel1Admin,
       },
       stageStats: processedStageStats,
       employeeStats: processedEmployeeStats,
+      firstTimesheetDate, // 当前日期范围内的第一条timesheet日期
+      globalFirstTimesheetDate, // 项目全局第一条timesheet日期
       month,
     };
     

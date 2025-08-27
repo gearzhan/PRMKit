@@ -1,0 +1,11 @@
+Employee ID,Name,Email,Role,Position,Is Active
+PSEC-000,Eric Chan,admin@psecprojects.com.au,LEVEL1,Director,ACTIVE
+PSEC-001,Rafael Bautista,rbautista@psecprojects.com.au,LEVEL1,Associate Director,ACTIVE
+PSEC-002,Sunny Wang,sywang@psecprojects.com.au,LEVEL1,Office Admin,ACTIVE
+PSEC-003,Rick Wang,rwang@psecprojects.com.au,LEVEL2,Junior Architect ,ACTIVE
+PSEC-010,Robin Han,rhan@psecprojects.com.au,LEVEL3,Junior Architect ,ACTIVE
+PSEC-011,Landy Tan,ltan@psecprojects.com.au,LEVEL3,Junior Architect ,ACTIVE
+PSEC-012,Zoe Shi,zshi@psecprojects.com.au,LEVEL3,Junior Architect ,ACTIVE
+PSEC-013,Leroy Cheng,lcheng@psecprojects.com.au,LEVEL3,Junior Architect ,ACTIVE
+PSEC-101,Tianmu Miao,tmiao@psecprojects.com.au,LEVEL3,Quantity Surveyor,ACTIVE
+PSEC-102,Maolin Cai,mcai@psecprojects.com.au,LEVEL3,Draft Person,ACTIVE

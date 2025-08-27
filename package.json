@@ -33,6 +33,7 @@
     "dayjs": "^1.11.13",
     "dotenv": "^17.2.1",
     "express": "^4.21.2",
+    "form-data": "^4.0.4",
     "joi": "^18.0.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.511.0",
