@@ -130,6 +130,12 @@ export const timesheetAPI = {
     const response = await api.get('/timesheets/stats/summary', { params });
     return response.data;
   },
+  
+  // 批量更新工时记录状态
+  batchUpdateStatus: async (date: string, status: 'DRAFT' | 'SUBMITTED') => {
+    const response = await api.put('/timesheets/batch/status', { date, status });
+    return response.data;
+  },
 };
 
 // 项目相关API
@@ -235,6 +241,7 @@ export const approvalAPI = {
     const response = await api.get('/approvals/my/workload', { params });
     return response.data;
   },
+  
 };
 
 // 阶段相关API
@@ -353,6 +360,14 @@ export const adminApprovalAPI = {
   // 获取审批统计（管理员专用）
   getStats: async (params: any = {}) => {
     const response = await api.get('/admin/approvals/stats', { params });
+    return response.data;
+  },
+  
+  // 批量重置工时表状态为SUBMITTED（仅Level 1管理员）
+  batchResetToSubmitted: async (timesheetIds: string[]) => {
+    const response = await api.put('/admin/approvals/batch/reset-to-submitted', {
+      timesheetIds,
+    });
     return response.data;
   },
 };

@@ -162,16 +162,7 @@ const Dashboard: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Timesheets"
-              value={stats?.totalTimesheets || 0}
-              prefix={<CheckCircleOutlined className="text-green-500" />}
-              loading={statsLoading}
-            />
-          </Card>
-        </Col>
+
         {isManagerOrAdmin() && (
           <Col xs={24} sm={12} lg={6}>
             <Card>

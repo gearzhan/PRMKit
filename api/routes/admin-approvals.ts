@@ -54,9 +54,12 @@ router.get('/pending', authenticateToken, requireLevel2Manager, async (req: Auth
     }
 
     if (startDate || endDate) {
-      where.submittedAt = {};
-      if (startDate) where.submittedAt.gte = new Date(startDate as string);
-      if (endDate) where.submittedAt.lte = new Date(endDate as string);
+      where.timesheet = {
+        ...where.timesheet,
+        date: {}
+      };
+      if (startDate) where.timesheet.date.gte = new Date(startDate as string);
+      if (endDate) where.timesheet.date.lte = new Date(endDate as string);
     }
 
     // 搜索功能
@@ -228,9 +231,12 @@ router.get('/history', authenticateToken, requireLevel2Manager, async (req: Auth
     }
 
     if (startDate || endDate) {
-      where.approvedAt = {};
-      if (startDate) where.approvedAt.gte = new Date(startDate as string);
-      if (endDate) where.approvedAt.lte = new Date(endDate as string);
+      where.timesheet = {
+        ...where.timesheet,
+        date: {}
+      };
+      if (startDate) where.timesheet.date.gte = new Date(startDate as string);
+      if (endDate) where.timesheet.date.lte = new Date(endDate as string);
     }
 
     // 搜索功能
@@ -494,9 +500,12 @@ router.get('/stats', authenticateToken, requireLevel1Admin, async (req: Authenti
     }
 
     if (startDate || endDate) {
-      where.submittedAt = {};
-      if (startDate) where.submittedAt.gte = new Date(startDate as string);
-      if (endDate) where.submittedAt.lte = new Date(endDate as string);
+      where.timesheet = {
+        ...where.timesheet,
+        date: {}
+      };
+      if (startDate) where.timesheet.date.gte = new Date(startDate as string);
+      if (endDate) where.timesheet.date.lte = new Date(endDate as string);
     }
 
     // 按状态统计
@@ -619,6 +628,94 @@ router.get('/stats', authenticateToken, requireLevel1Admin, async (req: Authenti
     console.error('Error details:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' });
+  }
+});
+
+// 批量重置工时表状态为SUBMITTED（仅Level 1管理员）
+router.put('/batch/reset-to-submitted', authenticateToken, requireLevel1Admin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { timesheetIds } = req.body;
+    
+    if (!timesheetIds || !Array.isArray(timesheetIds) || timesheetIds.length === 0) {
+      return res.status(400).json({ error: 'Timesheet IDs are required' });
+    }
+    
+    // 查找要重置的工时记录
+    const timesheets = await prisma.timesheet.findMany({
+      where: {
+        id: { in: timesheetIds },
+      },
+      include: {
+        approval: true,
+      },
+    });
+    
+    if (timesheets.length === 0) {
+      return res.status(404).json({ error: 'No timesheets found' });
+    }
+    
+    // 检查是否有已批准的记录，已批准的记录不能重置
+    const approvedTimesheets = timesheets.filter(t => t.status === 'APPROVED');
+    if (approvedTimesheets.length > 0) {
+      return res.status(400).json({ 
+        error: 'Cannot reset approved timesheets',
+        approvedCount: approvedTimesheets.length 
+      });
+    }
+    
+    // 批量更新操作
+    const operations = [];
+    
+    // 删除现有的审批记录
+    const existingApprovalIds = timesheets
+      .filter(t => t.approval)
+      .map(t => t.approval!.id);
+    
+    if (existingApprovalIds.length > 0) {
+      operations.push(
+        prisma.approval.deleteMany({
+          where: {
+            id: { in: existingApprovalIds },
+          },
+        })
+      );
+    }
+    
+    // 更新工时表状态为SUBMITTED
+    operations.push(
+      prisma.timesheet.updateMany({
+        where: {
+          id: { in: timesheetIds },
+        },
+        data: {
+          status: 'SUBMITTED',
+        },
+      })
+    );
+    
+    // 为每个工时表创建新的审批记录
+    for (const timesheet of timesheets) {
+      operations.push(
+        prisma.approval.create({
+          data: {
+            timesheetId: timesheet.id,
+            submitterId: timesheet.employeeId,
+            status: 'PENDING',
+          },
+        })
+      );
+    }
+    
+    // 执行所有操作
+    await prisma.$transaction(operations);
+    
+    res.json({
+      message: `${timesheets.length} timesheets reset to submitted status successfully`,
+      resetCount: timesheets.length,
+    });
+  } catch (error) {
+    console.error('Admin batch reset to submitted error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -85,8 +85,25 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
       timesheetData.stageId = stageId;
     }
     
-    const timesheet = await prisma.timesheet.create({
-      data: timesheetData,
+    // 使用 upsert 来处理唯一约束冲突
+    // 如果存在相同的 employeeId, projectId, date, startTime 组合，则更新现有记录
+    const timesheet = await prisma.timesheet.upsert({
+      where: {
+        employeeId_projectId_date_startTime: {
+          employeeId: req.user!.userId,
+          projectId,
+          date: workDate,
+          startTime: startDateTime,
+        },
+      },
+      update: {
+        endTime: endDateTime,
+        hours,
+        description,
+        stageId: stageId || null,
+        updatedAt: new Date(),
+      },
+      create: timesheetData,
       include: {
         project: {
           select: {
@@ -560,6 +577,142 @@ router.get('/stats/summary', authenticateToken, async (req: AuthenticatedRequest
     });
   } catch (error) {
     console.error('Get timesheet stats error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 批量更新工时记录状态
+router.put('/batch/status', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { date, status } = req.body;
+    
+    // 验证状态值
+    if (!['DRAFT', 'SUBMITTED'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be DRAFT or SUBMITTED' });
+    }
+    
+    // 验证日期格式
+    if (!date) {
+      return res.status(400).json({ error: 'Date is required' });
+    }
+    
+    const targetDate = new Date(date);
+    if (isNaN(targetDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+    
+    // 查找指定日期的所有工时记录
+    const timesheets = await prisma.timesheet.findMany({
+      where: {
+        employeeId: req.user!.userId,
+        date: targetDate,
+      },
+      include: {
+        approval: true,
+      },
+    });
+    
+    if (timesheets.length === 0) {
+      return res.status(404).json({ error: 'No timesheets found for the specified date' });
+    }
+    
+    // 检查是否有已批准的记录，已批准的记录不能修改状态
+    const approvedTimesheets = timesheets.filter(t => t.status === 'APPROVED');
+    if (approvedTimesheets.length > 0) {
+      return res.status(400).json({ 
+        error: 'Cannot update status of approved timesheets',
+        approvedCount: approvedTimesheets.length 
+      });
+    }
+    
+    // 执行批量状态更新
+    const operations = [];
+    
+    if (status === 'DRAFT') {
+      // 更新为草稿状态，删除相关的审批记录
+      operations.push(
+        prisma.timesheet.updateMany({
+          where: {
+            employeeId: req.user!.userId,
+            date: targetDate,
+            status: { not: 'APPROVED' }, // 排除已批准的记录
+          },
+          data: { status: 'DRAFT' },
+        })
+      );
+      
+      // 删除相关的审批记录
+      const timesheetIds = timesheets.map(t => t.id);
+      operations.push(
+        prisma.approval.deleteMany({
+          where: {
+            timesheetId: { in: timesheetIds },
+            status: 'PENDING', // 只删除待审批的记录
+          },
+        })
+      );
+    } else if (status === 'SUBMITTED') {
+      // 更新为提交状态，创建审批记录
+      const draftTimesheets = timesheets.filter(t => t.status === 'DRAFT');
+      
+      operations.push(
+        prisma.timesheet.updateMany({
+          where: {
+            employeeId: req.user!.userId,
+            date: targetDate,
+            status: { not: 'APPROVED' }, // 排除已批准的记录
+          },
+          data: { status: 'SUBMITTED' },
+        })
+      );
+      
+      // 为每个草稿记录创建审批记录
+      for (const timesheet of draftTimesheets) {
+        operations.push(
+          prisma.approval.upsert({
+            where: { timesheetId: timesheet.id },
+            update: { status: 'PENDING' },
+            create: {
+              timesheetId: timesheet.id,
+              submitterId: req.user!.userId,
+              status: 'PENDING',
+            },
+          })
+        );
+      }
+    }
+    
+    // 执行事务
+    await prisma.$transaction(operations);
+    
+    // 获取更新后的记录
+    const updatedTimesheets = await prisma.timesheet.findMany({
+      where: {
+        employeeId: req.user!.userId,
+        date: targetDate,
+      },
+      include: {
+        project: {
+          select: {
+            name: true,
+            projectCode: true,
+          },
+        },
+        stage: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+    
+    res.json({
+      message: `Timesheets status updated to ${status} successfully`,
+      updatedCount: updatedTimesheets.length,
+      timesheets: updatedTimesheets,
+    });
+  } catch (error) {
+    console.error('Batch update timesheet status error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -20,6 +20,7 @@ import {
   Tabs,
   Avatar,
   Divider,
+  Empty,
 } from 'antd';
 import PageLayout from '@/components/PageLayout';
 import {
@@ -30,10 +31,19 @@ import {
   ProjectOutlined,
   CalendarOutlined,
   EyeOutlined,
+  DownOutlined,
+  UpOutlined,
 } from '@ant-design/icons';
 import { ColumnsType } from 'antd/es/table';
-import api, { adminApprovalAPI } from '@/lib/api';
+import api, { adminApprovalAPI, timesheetAPI } from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
+// 配置dayjs插件
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -84,6 +94,33 @@ interface Approval {
   };
 }
 
+// 按状态分组的审批记录接口
+interface StatusGroupedApprovals {
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  statusLabel: string;
+  statusColor: string;
+  count: number;
+  totalHours: number;
+  dailyGroups: DailyApprovalGroup[];
+}
+
+// 按日期分组的审批记录接口
+interface DailyApprovalGroup {
+  date: string;
+  dayOfWeek: string;
+  totalHours: number;
+  employeeGroups: EmployeeApprovalGroup[];
+}
+
+// 按员工分组的审批记录接口
+interface EmployeeApprovalGroup {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  totalHours: number;
+  approvals: Approval[];
+}
+
 // 分页信息接口
 interface Pagination {
   page: number;
@@ -107,8 +144,10 @@ interface Statistics {
  */
 const AdminApprovals: React.FC = () => {
   const { message } = App.useApp();
+  const { isLevel1Admin } = useAuthStore();
   const [activeTab, setActiveTab] = useState('pending');
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [groupedApprovals, setGroupedApprovals] = useState<StatusGroupedApprovals[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [batchModalVisible, setBatchModalVisible] = useState(false);
@@ -120,7 +159,7 @@ const AdminApprovals: React.FC = () => {
   // 过滤状态
   const [projectFilter, setProjectFilter] = useState<string | undefined>();
   const [submitterFilter, setSubmitterFilter] = useState<string | undefined>();
-  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>([dayjs().startOf('week'), dayjs().endOf('week')]);
   const [sortBy, setSortBy] = useState('submittedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
@@ -138,6 +177,124 @@ const AdminApprovals: React.FC = () => {
   // 项目和用户选项（用于筛选）
   const [projectOptions, setProjectOptions] = useState<Array<{ id: string; name: string; projectCode: string }>>([]);
   const [userOptions, setUserOptions] = useState<Array<{ id: string; name: string; employeeId: string }>>([]);
+  
+  // 员工卡片展开/收起状态管理
+  const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set());
+
+  // 切换员工卡片展开/收起状态
+  const toggleEmployeeExpanded = (employeeId: string) => {
+    const newExpanded = new Set(expandedEmployees);
+    if (newExpanded.has(employeeId)) {
+      newExpanded.delete(employeeId);
+    } else {
+      newExpanded.add(employeeId);
+    }
+    setExpandedEmployees(newExpanded);
+  };
+
+  // 重置员工条目为submitted状态（仅Level 1 Staff可用）
+  const handleResetToSubmitted = async (employeeGroup: EmployeeApprovalGroup) => {
+    try {
+      // 获取该员工的所有timesheet IDs
+      const timesheetIds = employeeGroup.approvals.map(approval => approval.timesheet.id);
+      
+      // 使用管理员专用API批量重置工时表状态
+      const result = await adminApprovalAPI.batchResetToSubmitted(timesheetIds);
+      
+      message.success(result.message || `Successfully reset ${result.resetCount} timesheets to submitted status`);
+      
+      // 刷新数据
+      fetchApprovals();
+    } catch (error: any) {
+      console.error('Reset to submitted error:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to reset entries to submitted status';
+      message.error(errorMessage);
+    }
+  };
+
+  // 按状态分组审批记录
+  const groupApprovalsByStatus = (approvals: Approval[]): StatusGroupedApprovals[] => {
+    // 首先按状态分组
+    const statusGroups = approvals.reduce((acc, approval) => {
+      const status = approval.status;
+      if (!acc[status]) {
+        acc[status] = [];
+      }
+      acc[status].push(approval);
+      return acc;
+    }, {} as Record<string, Approval[]>);
+
+    // 为每个状态创建分组数据
+    const result: StatusGroupedApprovals[] = [];
+    
+    // 按优先级排序状态：PENDING -> APPROVED -> REJECTED
+    const statusOrder: Array<'PENDING' | 'APPROVED' | 'REJECTED'> = ['PENDING', 'APPROVED', 'REJECTED'];
+    
+    statusOrder.forEach(status => {
+      const statusApprovals = statusGroups[status] || [];
+      if (statusApprovals.length === 0) return;
+
+      // 按日期分组
+      const dateGroups = statusApprovals.reduce((acc, approval) => {
+        const date = dayjs(approval.timesheet.date).format('YYYY-MM-DD');
+        if (!acc[date]) {
+          acc[date] = [];
+        }
+        acc[date].push(approval);
+        return acc;
+      }, {} as Record<string, Approval[]>);
+
+      // 为每个日期创建员工分组
+      const dailyGroups: DailyApprovalGroup[] = Object.entries(dateGroups)
+        .sort(([a], [b]) => dayjs(b).valueOf() - dayjs(a).valueOf()) // 按日期倒序
+        .map(([date, dateApprovals]) => {
+          // 按员工分组
+          const employeeGroups = dateApprovals.reduce((acc, approval) => {
+            const employeeId = approval.timesheet.employee.id;
+            if (!acc[employeeId]) {
+              acc[employeeId] = {
+                employeeId,
+                employeeName: approval.timesheet.employee.name,
+                employeeCode: approval.timesheet.employee.employeeId,
+                totalHours: 0,
+                approvals: [],
+              };
+            }
+            acc[employeeId].approvals.push(approval);
+            acc[employeeId].totalHours += approval.timesheet.hours;
+            return acc;
+          }, {} as Record<string, EmployeeApprovalGroup>);
+
+          const totalHours = dateApprovals.reduce((sum, approval) => sum + approval.timesheet.hours, 0);
+
+          return {
+            date,
+            dayOfWeek: dayjs(date).format('dddd'),
+            totalHours,
+            employeeGroups: Object.values(employeeGroups).sort((a, b) => a.employeeName.localeCompare(b.employeeName)),
+          };
+        });
+
+      const statusConfig = {
+        PENDING: { label: 'Pending Approvals', color: 'orange' },
+        APPROVED: { label: 'Approved', color: 'green' },
+        REJECTED: { label: 'Rejected', color: 'red' },
+      };
+
+      const totalHours = statusApprovals.reduce((sum, approval) => sum + approval.timesheet.hours, 0);
+
+      result.push({
+        status,
+        statusLabel: statusConfig[status].label,
+        statusColor: statusConfig[status].color,
+        count: statusApprovals.length,
+        totalHours,
+        dailyGroups,
+      });
+    });
+
+    return result;
+  };
 
   // 获取审批列表
   const fetchApprovals = async (tab: string = activeTab) => {
@@ -167,7 +324,13 @@ const AdminApprovals: React.FC = () => {
         : await adminApprovalAPI.getHistory(params);
       
       console.log('Frontend: API响应成功', response);
-      setApprovals(response.approvals || []);
+      const approvalsData = response.approvals || [];
+      setApprovals(approvalsData);
+      
+      // 生成按状态分组的数据
+      const grouped = groupApprovalsByStatus(approvalsData);
+      setGroupedApprovals(grouped);
+      
       setPagination(response.pagination);
     } catch (error: any) {
       console.error('Frontend: 获取审批列表失败 - 详细错误信息:', {
@@ -303,7 +466,10 @@ const AdminApprovals: React.FC = () => {
   const resetFilters = () => {
     setProjectFilter(undefined);
     setSubmitterFilter(undefined);
-    setDateRange(null);
+    // 设置日期范围为当周的开始和结束日期
+    const startOfWeek = dayjs().startOf('week');
+    const endOfWeek = dayjs().endOf('week');
+    setDateRange([startOfWeek, endOfWeek]);
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
@@ -317,6 +483,267 @@ const AdminApprovals: React.FC = () => {
   const getStatusText = (status: string) => {
     const option = APPROVAL_STATUS_OPTIONS.find(opt => opt.value === status);
     return option?.label || status;
+  };
+
+  // 获取状态标签颜色和文本
+  const getStatusTag = (status: string) => {
+    const statusConfig = {
+      PENDING: { color: 'orange', text: 'Pending' },
+      APPROVED: { color: 'green', text: 'Approved' },
+      REJECTED: { color: 'red', text: 'Rejected' },
+    };
+    const config = statusConfig[status as keyof typeof statusConfig] || { color: 'default', text: status };
+    return <Tag color={config.color}>{config.text}</Tag>;
+  };
+
+  // 渲染按状态分组的审批记录
+  const renderGroupedApprovals = () => {
+    if (groupedApprovals.length === 0) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          <Empty description="No approvals found" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {groupedApprovals.map((statusGroup) => (
+          <Card
+            key={statusGroup.status}
+            title={
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Tag color={statusGroup.statusColor} className="text-sm px-3 py-1">
+                    {statusGroup.statusLabel}
+                  </Tag>
+                  <span className="text-gray-600">
+                    {statusGroup.count} records • {statusGroup.totalHours.toFixed(1)} hours
+                  </span>
+                </div>
+                {statusGroup.status === 'PENDING' && (
+                   <div className="flex items-center space-x-2">
+                     <Checkbox
+                       indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < statusGroup.count}
+                       checked={selectedRowKeys.length === statusGroup.count}
+                       onChange={(e) => {
+                         if (e.target.checked) {
+                           // 选择该状态组下的所有审批记录
+                           const allApprovalIds = statusGroup.dailyGroups
+                             .flatMap(daily => daily.employeeGroups)
+                             .flatMap(employee => employee.approvals)
+                             .map(approval => approval.id);
+                           setSelectedRowKeys([...new Set([...selectedRowKeys, ...allApprovalIds])]);
+                         } else {
+                           // 取消选择该状态组下的所有审批记录
+                           const statusApprovalIds = statusGroup.dailyGroups
+                             .flatMap(daily => daily.employeeGroups)
+                             .flatMap(employee => employee.approvals)
+                             .map(approval => approval.id);
+                           setSelectedRowKeys(selectedRowKeys.filter(key => !statusApprovalIds.includes(key as string)));
+                         }
+                       }}
+                     >
+                       Select All
+                     </Checkbox>
+                     {selectedRowKeys.length > 0 && (
+                       <Button
+                         type="primary"
+                         size="small"
+                         onClick={() => openBatchModal()}
+                       >
+                         Batch Approve ({selectedRowKeys.length})
+                       </Button>
+                     )}
+                   </div>
+                 )}
+              </div>
+            }
+            className="shadow-sm"
+          >
+            <div className="space-y-4">
+              {statusGroup.dailyGroups.map((dailyGroup) => (
+                <div key={dailyGroup.date} className="border-l-4 border-blue-200 pl-4">
+                  <div className="flex items-center justify-between mb-3">
+                     <div className="flex items-center space-x-3">
+                       <h4 className="font-medium text-gray-900">
+                         {dayjs(dailyGroup.date).format('MMMM D, YYYY')} ({dailyGroup.dayOfWeek})
+                       </h4>
+                       {statusGroup.status === 'PENDING' && (
+                         <Checkbox
+                           indeterminate={
+                             dailyGroup.employeeGroups.some(emp => 
+                               emp.approvals.some(app => selectedRowKeys.includes(app.id))
+                             ) && !dailyGroup.employeeGroups.every(emp => 
+                               emp.approvals.every(app => selectedRowKeys.includes(app.id))
+                             )
+                           }
+                           checked={
+                             dailyGroup.employeeGroups.length > 0 && 
+                             dailyGroup.employeeGroups.every(emp => 
+                               emp.approvals.every(app => selectedRowKeys.includes(app.id))
+                             )
+                           }
+                           onChange={(e) => {
+                             const dailyApprovalIds = dailyGroup.employeeGroups
+                               .flatMap(emp => emp.approvals)
+                               .map(app => app.id);
+                             
+                             if (e.target.checked) {
+                               setSelectedRowKeys([...new Set([...selectedRowKeys, ...dailyApprovalIds])]);
+                             } else {
+                               setSelectedRowKeys(selectedRowKeys.filter(key => !dailyApprovalIds.includes(key as string)));
+                             }
+                           }}
+                         >
+                           <span className="text-xs text-gray-500">Select Day</span>
+                         </Checkbox>
+                       )}
+                     </div>
+                     <span className="text-sm text-gray-600">
+                       {dailyGroup.totalHours.toFixed(1)} hours
+                     </span>
+                   </div>
+                  
+                  <div className="space-y-3">
+                    {dailyGroup.employeeGroups.map((employeeGroup) => {
+                      const isExpanded = expandedEmployees.has(employeeGroup.employeeId);
+                      return (
+                      <div key={employeeGroup.employeeId} className="bg-gray-50 rounded-lg p-4">
+                        <div 
+                          className="flex items-center justify-between mb-3 cursor-pointer hover:bg-gray-100 rounded-lg p-2 -m-2 transition-colors duration-200"
+                          onClick={() => toggleEmployeeExpanded(employeeGroup.employeeId)}
+                        >
+                           <div className="flex items-center space-x-3">
+                             {getUserAvatar(employeeGroup.employeeName)}
+                             <div>
+                               <div className="font-medium text-gray-900">
+                                 {employeeGroup.employeeName}
+                               </div>
+                               <div className="text-sm text-gray-600">
+                                 ID: {employeeGroup.employeeCode}
+                               </div>
+                             </div>
+                             {statusGroup.status === 'PENDING' && (
+                               <Checkbox
+                                 indeterminate={
+                                   employeeGroup.approvals.some(app => selectedRowKeys.includes(app.id)) &&
+                                   !employeeGroup.approvals.every(app => selectedRowKeys.includes(app.id))
+                                 }
+                                 checked={
+                                   employeeGroup.approvals.length > 0 &&
+                                   employeeGroup.approvals.every(app => selectedRowKeys.includes(app.id))
+                                 }
+                                 onChange={(e) => {
+                                   e.stopPropagation(); // 阻止事件冒泡
+                                   const employeeApprovalIds = employeeGroup.approvals.map(app => app.id);
+                                   
+                                   if (e.target.checked) {
+                                     setSelectedRowKeys([...new Set([...selectedRowKeys, ...employeeApprovalIds])]);
+                                   } else {
+                                     setSelectedRowKeys(selectedRowKeys.filter(key => !employeeApprovalIds.includes(key as string)));
+                                   }
+                                 }}
+                               >
+                                 <span className="text-xs text-gray-500">Select Employee</span>
+                               </Checkbox>
+                             )}
+                           </div>
+                           <div className="flex items-center space-x-2">
+                             <span className="text-sm font-medium text-gray-700">
+                               {employeeGroup.totalHours.toFixed(1)} hours
+                             </span>
+                             {/* Level 1 Staff重置按钮 */}
+                             {isLevel1Admin() && (
+                               <Button
+                                 type="text"
+                                 size="small"
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   handleResetToSubmitted(employeeGroup);
+                                 }}
+                                 className="text-orange-600 hover:text-orange-700"
+                               >
+                                 Reset to Submitted
+                               </Button>
+                             )}
+                             {isExpanded ? (
+                               <UpOutlined className="text-gray-500 transition-transform duration-200" />
+                             ) : (
+                               <DownOutlined className="text-gray-500 transition-transform duration-200" />
+                             )}
+                           </div>
+                         </div>
+                        
+                        {/* 展开/收起的详细内容 */}
+                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                          isExpanded ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
+                        }`}>
+                          <div className="space-y-2 pt-2">
+                            {employeeGroup.approvals.map((approval) => (
+                              <div key={approval.id} className="bg-white rounded border p-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-4 text-sm">
+                                      <span className="font-medium text-blue-600">
+                                        {approval.timesheet.project.name}
+                                      </span>
+                                      <span className="text-gray-600">
+                                        {dayjs(approval.timesheet.startTime).tz('Australia/Sydney').format('HH:mm')} - {dayjs(approval.timesheet.endTime).tz('Australia/Sydney').format('HH:mm')}
+                                      </span>
+                                      <span className="font-medium text-gray-900">
+                                        {approval.timesheet.hours.toFixed(1)}h
+                                      </span>
+                                    </div>
+                                    {approval.timesheet.description && (
+                                      <div className="text-sm text-gray-600 mt-1">
+                                        {approval.timesheet.description}
+                                      </div>
+                                    )}
+                                    {approval.timesheet.stage && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        Stage: {approval.timesheet.stage.name}
+                                      </div>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="flex items-center space-x-2">
+                                    {statusGroup.status === 'PENDING' && (
+                                      <Checkbox
+                                        checked={selectedRowKeys.includes(approval.id)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedRowKeys([...selectedRowKeys, approval.id]);
+                                          } else {
+                                            setSelectedRowKeys(selectedRowKeys.filter(key => key !== approval.id));
+                                          }
+                                        }}
+                                      />
+                                    )}
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      onClick={() => viewDetail(approval)}
+                                    >
+                                      Details
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
   };
 
   // 生成用户头像
@@ -565,17 +992,7 @@ const AdminApprovals: React.FC = () => {
               />
             </Card>
           </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Avg. Approval Time"
-                value={statistics.averageApprovalTimeHours}
-                suffix="hrs"
-                precision={1}
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Card>
-          </Col>
+
         </Row>
       )}
 
@@ -584,20 +1001,6 @@ const AdminApprovals: React.FC = () => {
         <Row gutter={16} align="middle" className="mb-4">
           <Col flex="auto">
             <Space wrap>
-
-              <Select
-                placeholder="Project"
-                value={projectFilter}
-                onChange={setProjectFilter}
-                style={{ width: 150 }}
-                allowClear
-              >
-                {projectOptions.map(project => (
-                  <Option key={project.id} value={project.id}>
-                    {project.name}
-                  </Option>
-                ))}
-              </Select>
               <Select
                 placeholder="Submitter"
                 value={submitterFilter}
@@ -627,7 +1030,17 @@ const AdminApprovals: React.FC = () => {
                 placeholder={['Start Date', 'End Date']}
                 allowClear
               />
-              <Button onClick={resetFilters}>Reset</Button>
+              <Button onClick={resetFilters}>This Week / Reset</Button>
+              <Button onClick={() => {
+                const startOfLastWeek = dayjs().subtract(1, 'week').startOf('week');
+                const endOfLastWeek = dayjs().subtract(1, 'week').endOf('week');
+                setDateRange([startOfLastWeek, endOfLastWeek]);
+              }}>Last Week</Button>
+              <Button onClick={() => {
+                const startOfMonth = dayjs().startOf('month');
+                const endOfMonth = dayjs().endOf('month');
+                setDateRange([startOfMonth, endOfMonth]);
+              }}>This Month</Button>
               {activeTab === 'pending' && (
                 <Button
                   type="primary"
@@ -645,59 +1058,40 @@ const AdminApprovals: React.FC = () => {
 
       {/* 主要内容区域 */}
       <Card>
-        <Tabs 
-          activeKey={activeTab} 
+        <Tabs
+          activeKey={activeTab}
           onChange={setActiveTab}
           items={[
             {
               key: 'pending',
               label: 'Pending Approvals',
               children: (
-                <Table
-                  columns={pendingColumns}
-                  dataSource={approvals}
-                  rowKey="id"
-                  loading={loading}
-                  rowSelection={rowSelection}
-                  scroll={{ x: 1400 }}
-                  pagination={{
-                    current: pagination.page,
-                    pageSize: pagination.limit,
-                    total: pagination.total,
-                    pageSizeOptions: ['20', '50'],
-                    showSizeChanger: true,
-                    showQuickJumper: true,
-                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-                    onChange: (page, pageSize) => {
-                      setPagination(prev => ({ ...prev, page, limit: pageSize || prev.limit }));
-                    },
-                  }}
-                />
+                <div>
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="mt-2 text-gray-600">Loading approvals...</p>
+                    </div>
+                  ) : (
+                    renderGroupedApprovals()
+                  )}
+                </div>
               ),
             },
             {
               key: 'history',
               label: 'Approval History',
               children: (
-                <Table
-                  columns={historyColumns}
-                  dataSource={approvals}
-                  rowKey="id"
-                  loading={loading}
-                  scroll={{ x: 1400 }}
-                  pagination={{
-                    current: pagination.page,
-                    pageSize: pagination.limit,
-                    total: pagination.total,
-                    pageSizeOptions: ['20', '50'],
-                    showSizeChanger: true,
-                    showQuickJumper: true,
-                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
-                    onChange: (page, pageSize) => {
-                      setPagination(prev => ({ ...prev, page, limit: pageSize || prev.limit }));
-                    },
-                  }}
-                />
+                <div>
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="mt-2 text-gray-600">Loading history...</p>
+                    </div>
+                  ) : (
+                    renderGroupedApprovals()
+                  )}
+                </div>
               ),
             },
           ]}

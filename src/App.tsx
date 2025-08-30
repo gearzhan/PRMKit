@@ -121,6 +121,16 @@ export default function App() {
             } 
           />
           
+          {/* 工时录入页面 - 支持日期参数 */}
+          <Route 
+            path="/timesheet-entry" 
+            element={
+              <ProtectedRoute>
+                <TimesheetEntry />
+              </ProtectedRoute>
+            } 
+          />
+          
 
           
           {/* 审批管理路由 - Level 1管理员 */}

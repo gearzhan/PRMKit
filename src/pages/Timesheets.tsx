@@ -15,6 +15,7 @@ import {
   Row,
   Col,
   Statistic,
+  Collapse,
 } from 'antd';
 import {
   PlusOutlined,
@@ -26,6 +27,9 @@ import {
   ExportOutlined,
   MoreOutlined,
   ClockCircleOutlined,
+  SendOutlined,
+  RollbackOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import PageLayout from '@/components/PageLayout';
@@ -66,6 +70,23 @@ interface TimesheetRecord {
   updatedAt: string;
 }
 
+// 按天聚合的工时记录接口
+interface DailyTimesheetSummary {
+  date: string;
+  dayOfWeek: string;
+  totalHours: number;
+  projects: {
+    projectName: string;
+    projectCode: string;
+    stageName?: string;
+    hours: number;
+    status: 'DRAFT' | 'SUBMITTED' | 'APPROVED';
+  }[];
+  records: TimesheetRecord[];
+  hasMultipleStatuses: boolean;
+  primaryStatus: 'DRAFT' | 'SUBMITTED' | 'APPROVED';
+}
+
 // 状态标签配置
 const statusConfig = {
   DRAFT: { color: 'default', text: 'Draft' },
@@ -81,6 +102,7 @@ const Timesheets: React.FC = () => {
   // 状态管理
   const [loading, setLoading] = useState(false);
   const [timesheets, setTimesheets] = useState<TimesheetRecord[]>([]);
+  const [dailySummaries, setDailySummaries] = useState<DailyTimesheetSummary[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -108,6 +130,66 @@ const Timesheets: React.FC = () => {
     approvedHours: 0,
   });
 
+  // 按天聚合工时记录数据
+  const groupTimesheetsByDay = (timesheets: TimesheetRecord[]): DailyTimesheetSummary[] => {
+    const grouped = timesheets.reduce((acc, record) => {
+      const date = dayjs(record.date).format('YYYY-MM-DD');
+      
+      if (!acc[date]) {
+        acc[date] = {
+          date,
+          dayOfWeek: dayjs(record.date).format('dddd'), // 获取周几
+          totalHours: 0,
+          projects: [],
+          records: [],
+          hasMultipleStatuses: false,
+          primaryStatus: record.status,
+        };
+      }
+      
+      acc[date].records.push(record);
+      acc[date].totalHours += record.hours;
+      
+      // 检查项目是否已存在
+      const existingProject = acc[date].projects.find(
+        p => p.projectName === record.project.name && p.stageName === record.stage?.name
+      );
+      
+      if (existingProject) {
+        existingProject.hours += record.hours;
+      } else {
+        acc[date].projects.push({
+          projectName: record.project.name,
+          projectCode: record.project.projectCode,
+          stageName: record.stage?.name,
+          hours: record.hours,
+          status: record.status,
+        });
+      }
+      
+      // 检查是否有多种状态
+      const statuses = acc[date].records.map(r => r.status);
+      const uniqueStatuses = [...new Set(statuses)];
+      acc[date].hasMultipleStatuses = uniqueStatuses.length > 1;
+      
+      // 确定主要状态（优先级：APPROVED > SUBMITTED > DRAFT）
+      if (statuses.includes('APPROVED')) {
+        acc[date].primaryStatus = 'APPROVED';
+      } else if (statuses.includes('SUBMITTED')) {
+        acc[date].primaryStatus = 'SUBMITTED';
+      } else {
+        acc[date].primaryStatus = 'DRAFT';
+      }
+      
+      return acc;
+    }, {} as Record<string, DailyTimesheetSummary>);
+    
+    // 转换为数组并按日期排序
+    return Object.values(grouped).sort((a, b) => 
+      dayjs(b.date).valueOf() - dayjs(a.date).valueOf()
+    );
+  };
+
   // 获取工时记录列表
   const fetchTimesheets = async () => {
     try {
@@ -126,8 +208,13 @@ const Timesheets: React.FC = () => {
       }
       
       const response = await timesheetAPI.getList(params);
-      setTimesheets(response.timesheets || []);
+      const timesheetsData = response.timesheets || [];
+      setTimesheets(timesheetsData);
       setTotal(response.pagination?.total || 0);
+      
+      // 生成按天聚合的数据
+      const dailyData = groupTimesheetsByDay(timesheetsData);
+      setDailySummaries(dailyData);
       
       // 计算统计数据
       const totalHours = response.timesheets?.reduce((sum: number, item: TimesheetRecord) => sum + item.hours, 0) || 0;
@@ -201,6 +288,44 @@ const Timesheets: React.FC = () => {
     }
   };
 
+  // 批量提交某日期下的所有DRAFT状态记录
+  const handleSubmitDay = async (date: string) => {
+    try {
+      // 找到该日期下所有DRAFT状态的记录
+      const dailySummary = dailySummaries.find(summary => summary.date === date);
+      if (!dailySummary) {
+        message.error('No records found for this date');
+        return;
+      }
+
+      const draftRecords = dailySummary.records.filter(record => record.status === 'DRAFT');
+      if (draftRecords.length === 0) {
+        message.info('No draft records to submit for this date');
+        return;
+      }
+
+      // 确认提交
+      modal.confirm({
+        title: 'Submit All Draft Records',
+        content: `Are you sure you want to submit all ${draftRecords.length} draft record(s) for ${dayjs(date).format('MMM DD, YYYY')}?`,
+        okText: 'Submit',
+        cancelText: 'Cancel',
+        onOk: async () => {
+          try {
+            // 批量提交所有DRAFT记录
+            await Promise.all(draftRecords.map(record => timesheetAPI.submit(record.id)));
+            message.success(`Successfully submitted ${draftRecords.length} record(s)`);
+            fetchTimesheets();
+          } catch (error: any) {
+            message.error(error.response?.data?.error || 'Failed to submit records');
+          }
+        },
+      });
+    } catch (error: any) {
+      message.error(error.response?.data?.error || 'Failed to submit records');
+    }
+  };
+
   // 操作菜单
   const getActionMenu = (record: TimesheetRecord) => {
     const items: any[] = [];
@@ -257,109 +382,104 @@ const Timesheets: React.FC = () => {
     return items;
   };
 
-  // 表格列定义
-  const columns: ColumnsType<TimesheetRecord> = [
+  // 按天聚合显示的表格列定义
+  const dailyColumns: ColumnsType<DailyTimesheetSummary> = [
     {
       title: 'Date',
       dataIndex: 'date',
       key: 'date',
-      width: 120,
-      render: (date: string) => dayjs(date).format('YYYY-MM-DD'),
-      sorter: true,
-    },
-    {
-      title: 'Project',
-      key: 'project',
-      width: 200,
-      render: (_, record) => (
-        <div>
-          <div className="font-medium">{record.project.name}</div>
-          <div className="text-xs text-gray-500">{record.project.projectCode}</div>
+      width: 150,
+      sorter: (a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf(),
+      render: (date: string, record: DailyTimesheetSummary) => (
+        <div className="text-sm">
+          <div className="font-medium">{dayjs(date).format('MMM DD, YYYY')}</div>
+          <div className="text-gray-500">{record.dayOfWeek}</div>
         </div>
       ),
     },
     {
-      title: 'Stage',
-      key: 'stage',
+      title: 'Total Hours',
+      dataIndex: 'totalHours',
+      key: 'totalHours',
       width: 120,
-      render: (_, record) => record.stage?.name || 'N/A',
+      sorter: (a, b) => a.totalHours - b.totalHours,
+      render: (hours: number) => (
+        <div className="text-sm font-medium text-blue-600">
+          {hours.toFixed(1)}h
+        </div>
+      ),
     },
     {
-      title: 'Time',
-      key: 'time',
-      width: 150,
-      render: (_, record) => {
-        // 将ISO时间格式转换为24小时制时间格式
-        const startTime = dayjs(record.startTime).format('HH:mm');
-        const endTime = dayjs(record.endTime).format('HH:mm');
+      title: 'Projects & Time',
+      key: 'projects',
+      render: (record: DailyTimesheetSummary) => (
+        <div className="text-sm space-y-1">
+          {record.projects.map((project, index) => (
+            <div key={index} className="flex items-center justify-between">
+              <div className="flex-1">
+                <span className="font-medium text-gray-900">{project.projectName}</span>
+                {project.stageName && (
+                  <span className="text-gray-500 ml-1">({project.stageName})</span>
+                )}
+              </div>
+              <div className="text-blue-600 font-medium ml-2">
+                {project.hours.toFixed(1)}h
+              </div>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      width: 120,
+      filters: [
+        { text: 'Draft', value: 'DRAFT' },
+        { text: 'Submitted', value: 'SUBMITTED' },
+        { text: 'Approved', value: 'APPROVED' },
+      ],
+      onFilter: (value, record) => record.primaryStatus === value,
+      render: (record: DailyTimesheetSummary) => {
+        const config = statusConfig[record.primaryStatus as keyof typeof statusConfig];
         return (
-          <div className="text-sm">
-            <div>{startTime} - {endTime}</div>
-            <div className="text-gray-500">{record.hours}h</div>
+          <div>
+            <Tag color={config.color} className="text-xs">
+              {config.text}
+            </Tag>
+            {record.hasMultipleStatuses && (
+              <div className="text-xs text-gray-500 mt-1">Mixed Status</div>
+            )}
           </div>
         );
       },
     },
     {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
-      ellipsis: {
-        showTitle: false,
-      },
-      render: (description: string) => (
-        <Tooltip placement="topLeft" title={description}>
-          {description || 'No description'}
-        </Tooltip>
-      ),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      render: (_, record) => {
-        const statusConfig = {
-          DRAFT: { color: 'default', text: 'Draft' },
-          SUBMITTED: { color: 'processing', text: 'Submitted' },
-          APPROVED: { color: 'success', text: 'Approved' },
-        };
-        const config = statusConfig[record.status as keyof typeof statusConfig] || 
-                      { color: 'default', text: 'Draft' };
-        return <Tag color={config.color}>{config.text}</Tag>;
-      },
-    },
-
-    {
       title: 'Actions',
       key: 'actions',
       width: 120,
-      fixed: 'right',
-      render: (_, record) => {
-        const menuItems = getActionMenu(record);
-        
-        // 如果没有可用操作，显示禁用的按钮
-        if (menuItems.length === 0) {
-          return (
-            <Button 
-              type="text" 
-              icon={<MoreOutlined />} 
-              disabled 
-              title="No actions available"
+      render: (record: DailyTimesheetSummary) => (
+        <Space size="small">
+          <Tooltip title="Edit">
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined />}
+              disabled={record.primaryStatus === 'APPROVED'}
+              onClick={() => navigate(`/timesheet-entry?date=${record.date}`)}
             />
-          );
-        }
-        
-        return (
-          <Dropdown
-            menu={{ items: menuItems }}
-            trigger={['click']}
-            placement="bottomRight"
-          >
-            <Button type="text" icon={<MoreOutlined />} />
-          </Dropdown>
-        );
-      },
+          </Tooltip>
+          <Tooltip title="Submit">
+            <Button
+              type="text"
+              size="small"
+              icon={<SendOutlined />}
+              disabled={record.primaryStatus !== 'DRAFT'}
+              onClick={() => handleSubmitDay(record.date)}
+            />
+          </Tooltip>
+        </Space>
+      ),
     },
   ];
 
@@ -371,14 +491,17 @@ const Timesheets: React.FC = () => {
 
   // 重置筛选条件
   const handleResetFilters = () => {
+    const currentMonthStart = dayjs().startOf('month');
+    const currentMonthEnd = dayjs().endOf('month');
+    
     setFilters({
       status: undefined,
       projectId: undefined,
       employeeId: undefined,
-      dateRange: undefined,
+      dateRange: [currentMonthStart, currentMonthEnd],
       search: '',
     });
-    setTempDateRange(undefined);
+    setTempDateRange([currentMonthStart, currentMonthEnd]);
     setCurrentPage(1);
   };
 
@@ -403,26 +526,16 @@ const Timesheets: React.FC = () => {
       description="Manage and track your timesheet records"
       icon={<ClockCircleOutlined />}
     >
-
-      {/* 统计卡片 */}
+      {/* 统计卡片和用户手册 */}
       <Row gutter={16} className="mb-6">
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Total Hours"
+              title="Total Hours of Listed"
               value={stats.totalHours}
               precision={1}
               suffix="h"
               valueStyle={{ color: '#3f8600' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Total Records"
-              value={stats.totalRecords}
-              valueStyle={{ color: '#1890ff' }}
             />
           </Card>
         </Col>
@@ -435,14 +548,32 @@ const Timesheets: React.FC = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Approved Hours"
-              value={stats.approvedHours}
-              precision={1}
-              suffix="h"
-              valueStyle={{ color: '#52c41a' }}
+        <Col xs={24} sm={24} lg={12}>
+          <Card style={{ backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
+            <Collapse
+              ghost
+              items={[
+                {
+                  key: '1',
+                  label: <span className="font-semibold text-green-700">User Manual</span>,
+                  children: (
+                    <div className="text-sm space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                        <span><strong>Draft</strong> → User-only visibility, fully editable.</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                        <span><strong>Submitted</strong> → Visible to Admin, pending approval, still editable until approved.</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                        <span><strong>Approved</strong> → Locked; no further edits or additions allowed.</span>
+                      </div>
+                    </div>
+                  ),
+                },
+              ]}
             />
           </Card>
         </Col>
@@ -450,8 +581,8 @@ const Timesheets: React.FC = () => {
 
       {/* 筛选和操作栏 */}
       <Card className="mb-6">
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={8} lg={6}>
+        <Row gutter={[12, 12]} align="middle">
+          <Col xs={24} sm={24} md={8} lg={9} xl={9}>
             <Search
               placeholder="Search timesheets..."
               value={filters.search}
@@ -460,7 +591,7 @@ const Timesheets: React.FC = () => {
               allowClear
             />
           </Col>
-          <Col xs={24} sm={12} md={8} lg={6}>
+          <Col xs={12} sm={8} md={4} lg={4} xl={3}>
             <Select
               placeholder="Filter by status"
               value={filters.status}
@@ -473,89 +604,91 @@ const Timesheets: React.FC = () => {
               <Option value="APPROVED">Approved</Option>
             </Select>
           </Col>
-          <Col xs={24} sm={12} md={8} lg={6}>
-            <Select
-              placeholder="Filter by project"
-              value={filters.projectId}
-              onChange={(value) => setFilters({ ...filters, projectId: value })}
-              allowClear
+          <Col xs={12} sm={8} md={6} lg={6} xl={6}>
+             <RangePicker
+               value={filters.dateRange}
+               onChange={(dates) => {
+                 setFilters({ ...filters, dateRange: dates as [dayjs.Dayjs, dayjs.Dayjs] });
+                 setCurrentPage(1);
+               }}
+               style={{ width: '100%' }}
+             />
+           </Col>
+          <Col xs={12} sm={4} md={3} lg={3} xl={3}>
+            <Button
+              icon={<FilterOutlined />}
+              onClick={handleResetFilters}
               style={{ width: '100%' }}
-            >
-              {projects.map((project) => (
-                <Option key={project.id} value={project.id}>
-                  {project.name}
-                </Option>
-              ))}
-            </Select>
+            >Reset</Button>
           </Col>
-          <Col xs={24} sm={12} md={8} lg={6}>
-            <Space.Compact style={{ width: '100%' }}>
-              <RangePicker
-                value={tempDateRange}
-                onChange={(dates) => setTempDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs])}
-                style={{ width: 'calc(100% - 30px)' }}
-              />
-              <Button
-                type="primary"
-                onClick={handleConfirmDateFilter}
-                style={{ width: '30px' }}
-              >
-                OK
-              </Button>
-            </Space.Compact>
-          </Col>
-        </Row>
-        
-        <Row gutter={16} className="mt-4" justify="space-between">
-          <Col>
-            <Space>
-              <Button
-                icon={<FilterOutlined />}
-                onClick={handleResetFilters}
-              >
-                Reset Filters
-              </Button>
-              <Button
-                icon={<ExportOutlined />}
-                onClick={handleExport}
-              >
-                Export
-              </Button>
-            </Space>
-          </Col>
-          <Col>
+          <Col xs={12} sm={4} md={3} lg={4} xl={3}>
             <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => navigate('/timesheets/new')}
-            >
-              New Timesheet
-            </Button>
+              style={{ width: '100%' }}
+            >New</Button>
           </Col>
         </Row>
       </Card>
 
       {/* 工时记录表格 */}
       <Card>
-        <Table<TimesheetRecord>
-          columns={columns}
-          dataSource={timesheets}
-          rowKey="id"
+        <Table<DailyTimesheetSummary>
+          columns={dailyColumns}
+          dataSource={dailySummaries}
+          rowKey="date"
           loading={loading}
           pagination={{
             current: currentPage,
             pageSize,
-            total,
+            total: dailySummaries.length,
             showSizeChanger: true,
             showQuickJumper: true,
             pageSizeOptions: ['20', '50'],
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} days`,
             onChange: (page, size) => {
               setCurrentPage(page);
               setPageSize(size || 20);
             },
           }}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1000 }}
+          size="small"
+          expandable={{
+            expandedRowRender: (record: DailyTimesheetSummary) => (
+              <div className="bg-gray-50 p-4 rounded">
+                <h4 className="font-medium mb-3">Detailed Records for {dayjs(record.date).format('MMM DD, YYYY')}</h4>
+                <div className="space-y-2">
+                  {record.records.map((timesheet, index) => (
+                    <div key={timesheet.id} className="bg-white p-3 rounded border text-sm">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="font-medium text-blue-600">{timesheet.project.name}</div>
+                          <div className="text-gray-500">{timesheet.project.projectCode}</div>
+                          {timesheet.stage && (
+                            <div className="text-gray-600">Stage: {timesheet.stage.name}</div>
+                          )}
+                          {timesheet.description && (
+                            <div className="text-gray-600 mt-1">Description: {timesheet.description}</div>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium">
+                            {dayjs(timesheet.startTime).format('HH:mm')} - {dayjs(timesheet.endTime).format('HH:mm')}
+                          </div>
+                          <div className="text-blue-600">{timesheet.hours}h</div>
+                          <Tag color={statusConfig[timesheet.status].color} className="text-xs mt-1">
+                            {statusConfig[timesheet.status].text}
+                          </Tag>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ),
+            rowExpandable: (record) => record.records.length > 0,
+          }}
         />      </Card>
     </PageLayout>
   );

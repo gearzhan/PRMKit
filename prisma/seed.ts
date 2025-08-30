@@ -214,6 +214,13 @@ async function main() {
   console.log('创建示例项目数据...');
   const projectData = [
     {
+      projectCode: 'OA',
+      name: 'Office Admin',
+      description: 'Admin Work',
+      startDate: new Date(),
+      status: ProjectStatus.ACTIVE,
+    },
+    {
       projectCode: 'PROJ001',
       name: 'Sample Residential Project',
       description: 'A sample residential development project',
