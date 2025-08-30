@@ -55,18 +55,34 @@ const TimesheetEntry: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]); // 存储所有活跃项目
+  const [displayProjects, setDisplayProjects] = useState<Project[]>([]); // 显示的项目列表
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [stages, setStages] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [calculatedHours, setCalculatedHours] = useState<number>(0);
+  const [isSearching, setIsSearching] = useState<boolean>(false); // 是否在搜索状态
   
   const isEditMode = !!id;
   
   // 获取用户可访问的项目列表
   const fetchProjects = async () => {
     try {
-      const response = await projectAPI.getList({ status: 'ACTIVE' });
-      setProjects(response.projects || []);
+      const response = await projectAPI.getList({ status: 'ACTIVE', limit: 1000 });
+      const allActiveProjects = response.projects || [];
+      
+      // 按projectCode降序排列
+      const sortedProjects = allActiveProjects.sort((a, b) => 
+        b.projectCode.localeCompare(a.projectCode)
+      );
+      
+      // 存储所有活跃项目
+      setAllProjects(sortedProjects);
+      
+      // 初始显示最多15个项目
+      const limitedProjects = sortedProjects.slice(0, 15);
+      setDisplayProjects(limitedProjects);
+      setProjects(limitedProjects);
     } catch (error: any) {
       console.error('Failed to fetch projects:', error);
       setError(error.response?.data?.error || 'Failed to load projects');
@@ -141,12 +157,46 @@ const TimesheetEntry: React.FC = () => {
   
   // 处理项目选择 - 修复循环引用问题
   const handleProjectChange = useCallback((projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
+    const project = allProjects.find(p => p.id === projectId);
     setSelectedProject(project || null);
     
     // 清除阶段选择
     form.setFieldValue('stageId', undefined);
-  }, [projects, form]);
+  }, [allProjects, form]);
+  
+  // 处理项目搜索
+  const handleProjectSearch = useCallback((value: string) => {
+    if (value.trim()) {
+      // 搜索时显示所有匹配的活跃项目
+      setIsSearching(true);
+      const filteredProjects = allProjects.filter(project => 
+        project.name.toLowerCase().includes(value.toLowerCase()) ||
+        project.projectCode.toLowerCase().includes(value.toLowerCase())
+      );
+      setProjects(filteredProjects);
+    } else {
+      // 清空搜索时显示所有项目以便继续搜索
+      setIsSearching(false);
+      setProjects(allProjects);
+    }
+  }, [allProjects]);
+  
+  // 处理项目选择器焦点事件
+  const handleProjectFocus = useCallback(() => {
+    // 焦点时显示所有活跃项目以支持搜索
+    setProjects(allProjects);
+  }, [allProjects]);
+  
+  // 处理项目选择器失去焦点事件
+  const handleProjectBlur = useCallback(() => {
+    // 延迟执行，避免与选择事件冲突
+    setTimeout(() => {
+      if (!isSearching) {
+        // 失去焦点时恢复初始显示（最多15个）
+        setProjects(displayProjects);
+      }
+    }, 200);
+  }, [displayProjects, isSearching]);
   
   // 处理时间变化 - 修复循环引用问题
   const handleTimeChange = useCallback(() => {
@@ -376,7 +426,7 @@ const TimesheetEntry: React.FC = () => {
   
   return (
     <div>
-      <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 p-6 bg-gray-50 min-h-screen">
       {/* 页面标题 */}
       <div className="mb-6 flex justify-between items-center">
         <div>
@@ -434,11 +484,14 @@ const TimesheetEntry: React.FC = () => {
                 <Select
                   placeholder="Select a project"
                   onChange={handleProjectChange}
+                  onSearch={handleProjectSearch}
+                  onFocus={handleProjectFocus}
+                  onBlur={handleProjectBlur}
                   showSearch
-                  filterOption={(input, option) => {
-                    const label = option?.label || option?.children || '';
-                    return String(label).toLowerCase().includes(input.toLowerCase());
-                  }}
+                  filterOption={false} // 禁用默认过滤，使用自定义搜索
+                  notFoundContent={isSearching ? 'No matching projects found' : 'No projects available'}
+                  virtual={false} // 禁用虚拟滚动以确保所有选项都显示
+                  listHeight={400} // 设置下拉列表高度
                 >
                   {projects.map(project => (
                     <Option key={project.id} value={project.id} label={`${project.name} (${project.projectCode})`}>
@@ -503,6 +556,8 @@ const TimesheetEntry: React.FC = () => {
                   minuteStep={15}
                   disabledTime={disabledTime}
                   onChange={handleTimeChange}
+                  showNow={false}
+                  needConfirm={false}
                 />
               </Form.Item>
             </Col>
@@ -534,6 +589,8 @@ const TimesheetEntry: React.FC = () => {
                   minuteStep={15}
                   disabledTime={disabledTime}
                   onChange={handleTimeChange}
+                  showNow={false}
+                  needConfirm={false}
                 />
               </Form.Item>
             </Col>

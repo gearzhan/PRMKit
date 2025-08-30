@@ -292,7 +292,48 @@ router.put('/change-password', authenticateToken, async (req: AuthenticatedReque
   }
 });
 
-
+// 重置用户密码（仅管理员）
+router.put('/users/:id/reset-password', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
+    }
+    
+    // 检查用户是否存在
+    const user = await prisma.employee.findUnique({
+      where: { id },
+      select: { id: true, name: true, employeeId: true },
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // 加密新密码
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // 更新密码
+    await prisma.employee.update({
+      where: { id },
+      data: { password: hashedPassword },
+    });
+    
+    res.json({ 
+      message: 'Password reset successfully',
+      user: {
+        id: user.id,
+        name: user.name,
+        employeeId: user.employeeId,
+      },
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // 删除用户（仅管理员）
 router.delete('/users/:id', authenticateToken, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {

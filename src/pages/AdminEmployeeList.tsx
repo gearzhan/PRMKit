@@ -32,6 +32,7 @@ import {
   MailOutlined,
   PhoneOutlined,
   EyeOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { ColumnsType } from 'antd/es/table';
 import api from '@/lib/api';
@@ -231,6 +232,21 @@ const AdminEmployeeList: React.FC = () => {
     }
   };
 
+  // 重置员工密码
+  const handleResetPassword = async (employeeId: string, employeeName: string) => {
+    try {
+      await api.put(`/auth/users/${employeeId}/reset-password`, { password: '02580258' });
+      message.success(`Password reset successfully for ${employeeName}`);
+    } catch (error: any) {
+      console.error('重置密码失败:', error);
+      if (error.response?.data?.error) {
+        message.error(error.response.data.error);
+      } else {
+        message.error('Failed to reset password');
+      }
+    }
+  };
+
   // 处理查看员工详情 - 跳转到新页面
   const handleViewEmployeeDetails = (employee: Employee) => {
     navigate(`/admin/employee/${employee.id}/drilldown`);
@@ -267,8 +283,10 @@ const AdminEmployeeList: React.FC = () => {
     {
       title: 'Employee',
       key: 'employee',
-      width: 200,
+      width: 150,
       fixed: 'left',
+      sorter: (a, b) => a.employeeId.localeCompare(b.employeeId),
+      defaultSortOrder: 'ascend',
       render: (_, record) => (
         <Space>
           {getUserAvatar(record.name)}
@@ -294,17 +312,6 @@ const AdminEmployeeList: React.FC = () => {
             {email}
           </Space>
         </Tooltip>
-      ),
-    },
-    {
-      title: 'Role',
-      dataIndex: 'role',
-      key: 'role',
-      width: 120,
-      render: (role) => (
-        <Tag color={getRoleColor(role)}>
-          {getRoleText(role)}
-        </Tag>
       ),
     },
     {
@@ -363,6 +370,20 @@ const AdminEmployeeList: React.FC = () => {
               onClick={() => openModal(record)}
             />
           </Tooltip>
+          <Popconfirm
+            title="Are you sure you want to reset this employee's password?"
+            description="The password will be reset to 02580258."
+            onConfirm={() => handleResetPassword(record.id, record.name)}
+            okText="OK"
+            cancelText="Cancel"
+          >
+            <Tooltip title="Reset Password">
+              <Button
+                type="text"
+                icon={<ReloadOutlined />}
+              />
+            </Tooltip>
+          </Popconfirm>
           <Popconfirm
             title="Are you sure you want to delete this employee?"
             description="This action cannot be undone and will affect related timesheet records."

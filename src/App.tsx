@@ -6,6 +6,7 @@ import Dashboard from '@/pages/Dashboard';
 import TimesheetEntry from '@/pages/TimesheetEntry';
 import Timesheets from '@/pages/Timesheets';
 import Home from '@/pages/Home';
+import Profile from '@/pages/Profile';
 
 import AdminProjectList from '@/pages/AdminProjectList';
 import AdminEmployeeList from '@/pages/AdminEmployeeList';
@@ -67,6 +68,16 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Home />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* 个人资料页面 */}
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             } 
           />
