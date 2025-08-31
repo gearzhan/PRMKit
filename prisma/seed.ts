@@ -4,7 +4,7 @@ import * as bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('开始种子数据填充（使用upsert策略）...');
+  console.log('开始种子数据填充 (使用upsert策略) ...');
   console.log('如果主键重复则覆盖更新，如果主键为新则添加...');
 
   // 创建新的Admin账户 - 使用新的角色层级系统

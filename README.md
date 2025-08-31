@@ -111,7 +111,7 @@ kill -9 <PID>
 #### 2. 数据库连接问题
 ```bash
 # 检查数据库文件
-ls -la prisma/dev.db
+ls -la prisma/prod.db
 
 # 重新生成数据库（开发环境）
 npm run db:push
