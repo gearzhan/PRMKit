@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Form,
   Input,
   Button,
   DatePicker,
@@ -63,7 +62,6 @@ const TimesheetEntry: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
-  const [form] = Form.useForm();
   const { message } = App.useApp();
   
   // 检测是否为新建模式

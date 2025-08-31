@@ -155,7 +155,7 @@ const AdminApprovals: React.FC = () => {
   const [batchAction] = useState<'approve'>('approve');
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
-  const [form] = Form.useForm();
+  const [batchForm] = Form.useForm();
   
   // 过滤状态
   const [projectFilter, setProjectFilter] = useState<string | undefined>();
@@ -432,14 +432,14 @@ const AdminApprovals: React.FC = () => {
   // 批量审批
   const handleBatchAction = async () => {
     try {
-      const values = await form.validateFields();
+      const values = await batchForm.validateFields();
       
       await adminApprovalAPI.batchApprove(selectedRowKeys as string[], values.comments);
       
       message.success(`${selectedRowKeys.length} timesheets approved successfully`);
       setBatchModalVisible(false);
       setSelectedRowKeys([]);
-      form.resetFields();
+      batchForm.resetFields();
       fetchApprovals();
       fetchStatistics();
     } catch (error: any) {
@@ -455,7 +455,7 @@ const AdminApprovals: React.FC = () => {
   // 打开批量操作模态框
   const openBatchModal = () => {
     setBatchModalVisible(true);
-    form.resetFields();
+    batchForm.resetFields();
   };
 
   // 查看详情
@@ -1172,7 +1172,7 @@ const AdminApprovals: React.FC = () => {
         okText="Approve"
       >
         <p>You are about to approve {selectedRowKeys.length} timesheet(s).</p>
-        <Form form={form} layout="vertical">
+        <Form form={batchForm} layout="vertical">
           <Form.Item
             label="Comments"
             name="comments"
