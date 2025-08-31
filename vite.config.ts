@@ -1,24 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tsconfigPaths from "vite-tsconfig-paths";
+import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 
 // https://vite.dev/config/
 export default defineConfig({
   base: '/',
-  build: {
-    // 优化构建性能和内存使用
-    chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // 将大型依赖分离到单独的chunk中
-          vendor: ['react', 'react-dom'],
-          antd: ['antd'],
-          charts: ['chart.js', 'react-chartjs-2', 'recharts']
-        }
-      }
-    }
-  },
   plugins: [
     react({
       babel: {
@@ -27,6 +14,15 @@ export default defineConfig({
         ],
       },
     }),
+    traeBadgePlugin({
+      variant: 'dark',
+      position: 'bottom-right',
+      prodOnly: true,
+      clickable: true,
+      clickUrl: 'https://www.trae.ai/solo?showJoin=1',
+      autoTheme: true,
+      autoThemeTarget: '#root'
+    }), 
     tsconfigPaths(),
   ],
   server: {
