@@ -68,6 +68,41 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 /**
+ * Health check route - 必须在其他路由之前定义
+ */
+app.get('/api/health', (req: Request, res: Response): void => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
+
+/**
+ * API info route
+ */
+app.get('/api', (req: Request, res: Response): void => {
+  res.status(200).json({
+    message: 'PRMKit API Server',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    endpoints: [
+      '/api/health',
+      '/api/auth',
+      '/api/timesheets',
+      '/api/projects',
+      '/api/approvals',
+      '/api/admin/approvals',
+      '/api/admin/dashboard',
+      '/api/reports',
+      '/api/stages',
+      '/api/csv'
+    ]
+  });
+});
+
+/**
  * API Routes
  */
 app.use('/api/auth', authRoutes);
@@ -81,16 +116,22 @@ app.use('/api/stages', stageRoutes);
 app.use('/api/csv', csvManagementRoutes);
 
 /**
- * health
+ * 生产环境静态文件服务配置
  */
-app.use('/api/health', (req: Request, res: Response, next: NextFunction): void => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development',
+if (process.env.NODE_ENV === 'production') {
+  // 提供静态文件服务
+  app.use(express.static(path.join(__dirname, '../dist')));
+  
+  // SPA 路由处理 - 所有非 API 请求都返回 index.html
+  app.get('*', (req: Request, res: Response) => {
+    // 确保不是 API 请求
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(__dirname, '../dist/index.html'));
+    }
   });
-});
+}
+
+
 
 /**
  * 404 handler

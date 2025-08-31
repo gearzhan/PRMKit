@@ -25,6 +25,36 @@ export default defineConfig({
     }), 
     tsconfigPaths(),
   ],
+  // 生产环境构建优化
+  build: {
+    target: 'es2020',
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: process.env.NODE_ENV !== 'production',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: process.env.NODE_ENV === 'production',
+        drop_debugger: true,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          ui: ['antd', 'lucide-react'],
+          charts: ['recharts', 'react-chartjs-2', 'chart.js'],
+          utils: ['axios', 'dayjs', 'clsx', 'zustand']
+        },
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]'
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+    reportCompressedSize: false
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

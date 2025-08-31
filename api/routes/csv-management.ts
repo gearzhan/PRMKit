@@ -1,11 +1,11 @@
 import { Router, Response } from 'express';
 import { PrismaClient, Role, ProjectStatus, TimesheetStatus, CsvDataType, CsvImportStatus } from '@prisma/client';
-import { authenticateToken, requireLevel1Admin, AuthenticatedRequest } from '../lib/jwt';
+import { authenticateToken, requireLevel1Admin, AuthenticatedRequest } from '../lib/jwt.js';
 import multer from 'multer';
 import csv from 'csv-parser';
 import Joi from 'joi';
 import { Readable } from 'stream';
-import prisma from '../lib/prisma';
+import prisma from '../lib/prisma.js';
 
 const router = Router();
 

@@ -24,4 +24,27 @@ dist-ssr
 *.sw?
 .vite
 .env
+.env.production
+.env.local
+.env.*.local
 prisma/dev.db
+dist/*
+
+# PM2 相关
+.pm2
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# 运行时文件
+uploads/*
+!uploads/.gitkeep
+
+# 监控和性能分析
+*.cpuprofile
+*.heapsnapshot
+
+# 生产环境构建缓存
+.tsbuildinfo
+.eslintcache
