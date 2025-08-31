@@ -14,6 +14,7 @@ import {
   Avatar,
   Divider,
   Empty,
+  Input,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -30,6 +31,7 @@ import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
+const { Search } = Input;
 
 // 员工项目数据接口
 interface EmployeeProjectData {
@@ -53,9 +55,6 @@ interface EmployeeDrillData {
   };
   projectStats: EmployeeProjectData[];
   summary: {
-    totalProjects: number;
-    totalHours: number;
-    averageHoursPerProject: number;
     dateRange: {
       startDate: string;
       endDate: string;
@@ -69,6 +68,7 @@ const EmployeeDrilldown: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [drillData, setDrillData] = useState<EmployeeDrillData | null>(null);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
+  const [searchText, setSearchText] = useState<string>('');
 
   // 获取员工详情数据
   const fetchEmployeeDrillData = async (startDate?: string, endDate?: string) => {
@@ -103,6 +103,16 @@ const EmployeeDrilldown: React.FC = () => {
       fetchEmployeeDrillData();
     }
   };
+
+  // 搜索过滤逻辑
+  const filteredProjectStats = drillData?.projectStats.filter(project => {
+    if (!searchText) return true;
+    const searchLower = searchText.toLowerCase();
+    return (
+      project.projectName.toLowerCase().includes(searchLower) ||
+      project.projectCode.toLowerCase().includes(searchLower)
+    );
+  }) || [];
 
   // 组件挂载时获取数据
   useEffect(() => {
@@ -224,42 +234,25 @@ const EmployeeDrilldown: React.FC = () => {
         <Spin spinning={loading}>
           {drillData ? (
             <>
-              {/* 时间范围选择器 */}
-              <Card style={{ marginBottom: '24px' }}>
-                <Space align="center">
-                  <Text strong>Date Range Filter:</Text>
-                  <RangePicker
-                    value={dateRange}
-                    onChange={handleDateRangeChange}
-                    allowClear
-                    placeholder={['Start Date', 'End Date']}
-                  />
-                  {drillData.summary.dateRange && (
-                    <Text type="secondary">
-                      Showing data from {dayjs(drillData.summary.dateRange.startDate).format('YYYY-MM-DD')} to{' '}
-                      {dayjs(drillData.summary.dateRange.endDate).format('YYYY-MM-DD')}
-                    </Text>
-                  )}
-                </Space>
-              </Card>
+
 
               {/* 统计概览 */}
               <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-                <Col xs={24} sm={12} md={6}>
+                <Col xs={24} sm={12} md={12}>
                   <Card>
                     <Statistic
                       title="Total Projects"
-                      value={drillData.summary.totalProjects}
+                      value={filteredProjectStats.length}
                       prefix={<ProjectOutlined />}
                       valueStyle={{ color: '#1890ff' }}
                     />
                   </Card>
                 </Col>
-                <Col xs={24} sm={12} md={6}>
+                <Col xs={24} sm={12} md={12}>
                   <Card>
                     <Statistic
                       title="Total Hours"
-                      value={drillData.summary.totalHours}
+                      value={filteredProjectStats.reduce((sum, project) => sum + project.totalHours, 0)}
                       precision={1}
                       suffix="h"
                       prefix={<ClockCircleOutlined />}
@@ -267,47 +260,80 @@ const EmployeeDrilldown: React.FC = () => {
                     />
                   </Card>
                 </Col>
-                <Col xs={24} sm={12} md={6}>
-                  <Card>
-                    <Statistic
-                      title="Avg Hours/Project"
-                      value={drillData.summary.averageHoursPerProject}
-                      precision={1}
-                      suffix="h"
-                      prefix={<ClockCircleOutlined />}
-                      valueStyle={{ color: '#fa8c16' }}
-                    />
-                  </Card>
-                </Col>
-                <Col xs={24} sm={12} md={6}>
-                  <Card>
-                    <Statistic
-                      title="Active Projects"
-                      value={drillData.projectStats.length}
-                      prefix={<ProjectOutlined />}
-                      valueStyle={{ color: '#722ed1' }}
-                    />
-                  </Card>
-                </Col>
               </Row>
+
+              {/* 筛选和操作栏 */}
+              <Card style={{ marginBottom: '24px' }}>
+                <Row gutter={[12, 12]} align="middle">
+                  <Col xs={24} sm={24} md={8} lg={9} xl={9}>
+                    <Search
+                      placeholder="Search projects by name or code..."
+                      value={searchText}
+                      onChange={(e) => setSearchText(e.target.value)}
+                      allowClear
+                    />
+                  </Col>
+                  <Col xs={24} sm={24} md={16} lg={15} xl={15}>
+                    <Space align="center" wrap>
+                      <Text strong>Date:</Text>
+                      <RangePicker
+                        value={dateRange}
+                        onChange={handleDateRangeChange}
+                        allowClear
+                        placeholder={['Start Date', 'End Date']}
+                      />
+                      <Button 
+                        size="small" 
+                        onClick={() => {
+                          const now = dayjs();
+                          const startOfMonth = now.startOf('month');
+                          const endOfMonth = now.endOf('month');
+                          const newDateRange: [dayjs.Dayjs, dayjs.Dayjs] = [startOfMonth, endOfMonth];
+                          handleDateRangeChange(newDateRange);
+                        }}
+                      >
+                        This Month
+                      </Button>
+                      <Button 
+                        size="small" 
+                        onClick={() => {
+                          const now = dayjs();
+                          const startOfLastMonth = now.subtract(1, 'month').startOf('month');
+                          const endOfLastMonth = now.subtract(1, 'month').endOf('month');
+                          const newDateRange: [dayjs.Dayjs, dayjs.Dayjs] = [startOfLastMonth, endOfLastMonth];
+                          handleDateRangeChange(newDateRange);
+                        }}
+                      >
+                        Last Month
+                      </Button>
+                      <Button 
+                        size="small" 
+                        onClick={() => handleDateRangeChange(null)}
+                      >
+                        Reset
+                      </Button>
+
+                    </Space>
+                  </Col>
+                </Row>
+              </Card>
 
               {/* 项目详情表格 */}
               <Card>
-                <Title level={4} style={{ marginBottom: '16px' }}>
-                  Project Participation Details
-                </Title>
-                <Divider style={{ margin: '16px 0' }} />
-                {drillData.projectStats.length > 0 ? (
+                <Title level={4} style={{ marginBottom: '16px' }}>Project Participation Details</Title>
+                
+
+                {filteredProjectStats.length > 0 ? (
                   <Table
                     columns={projectColumns}
-                    dataSource={drillData.projectStats}
+                    dataSource={filteredProjectStats}
                     rowKey="projectId"
                     pagination={{
                       pageSize: 10,
                       showSizeChanger: true,
                       showQuickJumper: true,
                       showTotal: (total, range) =>
-                        `${range[0]}-${range[1]} of ${total} projects`,
+                        `${range[0]}-${range[1]} of ${total} projects${searchText ? ' (filtered)' : ''}`,
                     }}
                     scroll={{ x: 800 }}
                   />

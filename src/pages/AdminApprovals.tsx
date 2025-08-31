@@ -980,98 +980,145 @@ const AdminApprovals: React.FC = () => {
 
       {/* 统计卡片 */}
       {statistics && (
-        <Row gutter={16} className="mb-6">
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Total Records"
-                value={statistics.totalRecords}
-                prefix={<FileTextOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Pending Approvals"
-                value={statistics.statusStats.find(s => s.status === 'PENDING')?._count.id || 0}
-                valueStyle={{ color: '#fa8c16' }}
-                prefix={<ClockCircleOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Approved"
-                value={statistics.statusStats.find(s => s.status === 'APPROVED')?._count.id || 0}
-                valueStyle={{ color: '#52c41a' }}
-                prefix={<CheckOutlined />}
-              />
-            </Card>
-          </Col>
-
-        </Row>
+        <div className="mb-6">
+          <Row gutter={[16, 16]} justify="center">
+            <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+              <Card 
+                className="text-center shadow-sm hover:shadow-md transition-shadow duration-200"
+                styles={{ body: { padding: '20px 16px' } }}
+              >
+                <Statistic
+                  title="Total Records"
+                  value={statistics.totalRecords}
+                  prefix={<FileTextOutlined className="text-blue-500" />}
+                  valueStyle={{ fontSize: '24px', fontWeight: 'bold' }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+              <Card 
+                className="text-center shadow-sm hover:shadow-md transition-shadow duration-200"
+                styles={{ body: { padding: '20px 16px' } }}
+              >
+                <Statistic
+                  title="Pending Approvals"
+                  value={statistics.statusStats.find(s => s.status === 'PENDING')?._count.id || 0}
+                  valueStyle={{ color: '#fa8c16', fontSize: '24px', fontWeight: 'bold' }}
+                  prefix={<ClockCircleOutlined className="text-orange-500" />}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+              <Card 
+                className="text-center shadow-sm hover:shadow-md transition-shadow duration-200"
+                styles={{ body: { padding: '20px 16px' } }}
+              >
+                <Statistic
+                  title="Approved"
+                  value={statistics.statusStats.find(s => s.status === 'APPROVED')?._count.id || 0}
+                  valueStyle={{ color: '#52c41a', fontSize: '24px', fontWeight: 'bold' }}
+                  prefix={<CheckOutlined className="text-green-500" />}
+                />
+              </Card>
+            </Col>
+          </Row>
+        </div>
       )}
 
       {/* 筛选和操作栏 */}
-      <Card className="mb-4">
-        <Row gutter={16} align="middle" className="mb-4">
-          <Col flex="auto">
-            <Space wrap>
-              <Select
-                placeholder="Submitter"
-                value={submitterFilter}
-                onChange={setSubmitterFilter}
-                style={{ width: 150 }}
-                allowClear
-              >
-                {userOptions.map(user => (
-                  <Option key={user.id} value={user.id}>
-                    {user.name}
-                  </Option>
-                ))}
-              </Select>
-
-              <RangePicker
-                value={dateRange}
-                onChange={(dates) => {
-                  console.log('Frontend: 日期范围变更', {
-                    dates,
-                    isValid: dates && dates[0] && dates[1],
-                    startDate: dates?.[0]?.format('YYYY-MM-DD'),
-                    endDate: dates?.[1]?.format('YYYY-MM-DD')
-                  });
-                  setDateRange(dates);
-                }}
-                format="YYYY-MM-DD"
-                placeholder={['Start Date', 'End Date']}
-                allowClear
-              />
-              <Button onClick={resetFilters}>This Week / Reset</Button>
-              <Button onClick={() => {
-                const startOfLastWeek = dayjs().subtract(1, 'week').startOf('week');
-                const endOfLastWeek = dayjs().subtract(1, 'week').endOf('week');
-                setDateRange([startOfLastWeek, endOfLastWeek]);
-              }}>Last Week</Button>
-              <Button onClick={() => {
-                const startOfMonth = dayjs().startOf('month');
-                const endOfMonth = dayjs().endOf('month');
-                setDateRange([startOfMonth, endOfMonth]);
-              }}>This Month</Button>
-              {activeTab === 'pending' && (
-                <Button
-                  type="primary"
-                  icon={<CheckOutlined />}
-                  onClick={() => openBatchModal()}
-                  disabled={selectedRowKeys.length === 0}
+      <Card className="mb-4 shadow-sm">
+        <div className="space-y-4">
+          {/* 筛选器区域 */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Filters</h4>
+            <Row gutter={[12, 12]} align="middle">
+              <Col xs={24} sm={12} md={8} lg={6}>
+                <Select
+                  placeholder="Select Submitter"
+                  value={submitterFilter}
+                  onChange={setSubmitterFilter}
+                  style={{ width: '100%' }}
+                  allowClear
+                  size="middle"
                 >
-                  Batch Approve ({selectedRowKeys.length})
-                </Button>
-              )}
-            </Space>
-          </Col>
-        </Row>
+                  {userOptions.map(user => (
+                    <Option key={user.id} value={user.id}>
+                      {user.name}
+                    </Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col xs={24} sm={12} md={10} lg={8}>
+                <RangePicker
+                  value={dateRange}
+                  onChange={(dates) => {
+                    console.log('Frontend: 日期范围变更', {
+                      dates,
+                      isValid: dates && dates[0] && dates[1],
+                      startDate: dates?.[0]?.format('YYYY-MM-DD'),
+                      endDate: dates?.[1]?.format('YYYY-MM-DD')
+                    });
+                    setDateRange(dates);
+                  }}
+                  format="YYYY-MM-DD"
+                  placeholder={['Start Date', 'End Date']}
+                  allowClear
+                  size="middle"
+                  style={{ width: '100%' }}
+                />
+              </Col>
+            </Row>
+          </div>
+          
+          {/* 快速筛选和操作按钮区域 */}
+          <div className="flex flex-row items-center justify-between gap-3 pt-2 border-t border-gray-100">
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                onClick={resetFilters}
+                size="middle"
+                className="hover:bg-blue-50 hover:border-blue-300"
+              >
+                This Week / Reset
+              </Button>
+              <Button 
+                onClick={() => {
+                  const startOfLastWeek = dayjs().subtract(1, 'week').startOf('week');
+                  const endOfLastWeek = dayjs().subtract(1, 'week').endOf('week');
+                  setDateRange([startOfLastWeek, endOfLastWeek]);
+                }}
+                size="middle"
+                className="hover:bg-blue-50 hover:border-blue-300"
+              >
+                Last Week
+              </Button>
+              <Button 
+                onClick={() => {
+                  const startOfMonth = dayjs().startOf('month');
+                  const endOfMonth = dayjs().endOf('month');
+                  setDateRange([startOfMonth, endOfMonth]);
+                }}
+                size="middle"
+                className="hover:bg-blue-50 hover:border-blue-300"
+              >
+                This Month
+              </Button>
+            </div>
+            
+            {/* 主要操作按钮 */}
+            {activeTab === 'pending' && (
+              <Button
+                type="primary"
+                icon={<CheckOutlined />}
+                onClick={() => openBatchModal()}
+                disabled={selectedRowKeys.length === 0}
+                size="middle"
+                className="shadow-sm"
+              >
+                Batch Approve ({selectedRowKeys.length})
+              </Button>
+            )}
+          </div>
+        </div>
       </Card>
 
       {/* 主要内容区域 */}

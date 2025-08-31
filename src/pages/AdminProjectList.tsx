@@ -124,10 +124,18 @@ const AdminProjectList: React.FC = () => {
       if (searchText) params.search = searchText;
       if (statusFilter) params.status = statusFilter;
       
+      // 获取分页数据
       const response = await api.get('/projects', { params });
       const projectList = response.data.projects || [];
       const paginationData = response.data.pagination || {};
       const total = paginationData.total || projectList.length;
+      
+      // 获取所有筛选后的项目用于统计计算
+      const statsParams = { ...params };
+      delete statsParams.page;
+      delete statsParams.limit;
+      const statsResponse = await api.get('/projects', { params: statsParams });
+      const allFilteredProjects = statsResponse.data.projects || [];
       
       // 服务器端已经处理了排序，直接使用返回的数据
       setProjects(projectList);
@@ -138,12 +146,12 @@ const AdminProjectList: React.FC = () => {
         total,
       }));
       
-      // 计算统计数据 - 使用总数而不是当前页面数据
+      // 计算统计数据 - 使用所有筛选后的项目数据
       const stats = {
-        total,
-        active: projectList.filter((p: Project) => p.status === 'ACTIVE').length,
-        completed: projectList.filter((p: Project) => p.status === 'COMPLETED').length,
-        suspended: projectList.filter((p: Project) => p.status === 'SUSPENDED').length,
+        total: allFilteredProjects.length,
+        active: allFilteredProjects.filter((p: Project) => p.status === 'ACTIVE').length,
+        completed: allFilteredProjects.filter((p: Project) => p.status === 'COMPLETED').length,
+        suspended: allFilteredProjects.filter((p: Project) => p.status === 'SUSPENDED').length,
       };
       setStatistics(stats);
     } catch (error) {
@@ -576,7 +584,7 @@ const AdminProjectList: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            label="Project Description"
+            label="Project Budget Description"
             name="description"
           >
             <TextArea

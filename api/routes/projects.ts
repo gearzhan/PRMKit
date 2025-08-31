@@ -8,11 +8,13 @@ const router = Router();
 // 获取项目列表
 router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { page = '1', limit = '10', status, search, sortBy = 'projectCode', sortOrder = 'desc' } = req.query;
+    const { page, limit, status, search, sortBy = 'projectCode', sortOrder = 'desc' } = req.query;
     
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
+    // 如果没有提供page和limit参数，则不应用分页
+    const shouldPaginate = page !== undefined && limit !== undefined;
+    const pageNum = shouldPaginate ? parseInt(page as string) : 1;
+    const limitNum = shouldPaginate ? parseInt(limit as string) : undefined;
+    const skip = shouldPaginate ? (pageNum - 1) * limitNum : 0;
     
     // 构建查询条件
     const where: any = {};
@@ -61,20 +63,27 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
       orderBy = { projectCode: 'desc' };
     }
     
-    const [projects, total] = await Promise.all([
-      prisma.project.findMany({
-        where,
-        include: {
-          _count: {
-            select: {
-              timesheets: true,
-            },
+    // 构建查询选项
+    const queryOptions: any = {
+      where,
+      include: {
+        _count: {
+          select: {
+            timesheets: true,
           },
         },
-        orderBy,
-        skip,
-        take: limitNum,
-      }),
+      },
+      orderBy,
+    };
+    
+    // 只在需要分页时添加skip和take
+    if (shouldPaginate) {
+      queryOptions.skip = skip;
+      queryOptions.take = limitNum;
+    }
+    
+    const [projects, total] = await Promise.all([
+      prisma.project.findMany(queryOptions),
       prisma.project.count({ where }),
     ]);
     
@@ -82,9 +91,9 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
       projects,
       pagination: {
         page: pageNum,
-        limit: limitNum,
+        limit: shouldPaginate ? limitNum : total,
         total,
-        pages: Math.ceil(total / limitNum),
+        pages: shouldPaginate ? Math.ceil(total / limitNum!) : 1,
       },
     });
   } catch (error) {

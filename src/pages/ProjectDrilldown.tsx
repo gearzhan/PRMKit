@@ -24,10 +24,11 @@ import {
   TeamOutlined,
   ClockCircleOutlined,
   CalendarOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { adminDashboardAPI } from '@/lib/api';
-import Navigation from '@/components/Navigation';
+import PageLayout from '@/components/PageLayout';
 
 const { Title, Text } = Typography;
 
@@ -37,6 +38,7 @@ interface ProjectDrillData {
     id: string;
     name: string;
     projectCode: string;
+    description?: string; // 项目描述字段
   };
   stageStats: Array<{
     stageName: string;
@@ -283,17 +285,25 @@ const ProjectDrilldown: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <PageLayout
+        title="Project Drill-down"
+        description="Loading project details and analytics"
+        icon={<ProjectOutlined />}
+      >
         <div className="flex justify-center items-center h-64">
           <Spin size="large" />
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
+      <PageLayout
+        title="Project Drill-down"
+        description="Error loading project data"
+        icon={<ProjectOutlined />}
+      >
         <Alert
           message="Error Loading Data"
           description={error}
@@ -310,142 +320,174 @@ const ProjectDrilldown: React.FC = () => {
             </Space>
           }
         />
-      </div>
+      </PageLayout>
     );
   }
 
-  return (
-    <div className="p-6">
+  // 创建面包屑导航和操作按钮的 extra 内容
+  const extraContent = (
+    <div className="flex flex-col gap-4">
       {/* 面包屑导航 */}
-      <div className="mb-6">
-        <Breadcrumb 
-          className="mb-4"
-          items={[
-            {
-              title: (
-                <Button 
-                  type="link" 
-                  icon={<ArrowLeftOutlined />} 
-                  onClick={handleGoBack}
-                  className="p-0"
-                >
-                  Admin Dashboard
-                </Button>
-              )
-            },
-            {
-              title: (
-                <span>
-                  <ProjectOutlined className="mr-1" />
-                  Project Drill-down
-                </span>
-              )
-            },
-            {
-              title: <span className="font-medium">{drillData?.project.name}</span>
-            }
-          ]}
-        />
-        
-        <div className="flex justify-between items-center">
-          <div>
-            <Title level={2} className="mb-2">
-              <ProjectOutlined className="mr-2" />
-              {drillData?.project.name}
-            </Title>
-            <Space split={<Divider type="vertical" />}>
-              <Text type="secondary">Code: {drillData?.project.projectCode}</Text>
-              <div>
-                <Text type="secondary" className="mr-2">Date Range:</Text>
-                <DatePicker.RangePicker
-                  value={dateRange}
-                  onChange={(dates) => {
-                    setIsUserDateSelection(true);
-                    setDateRange(dates);
-                  }}
-                  format="YYYY-MM-DD"
-                  placeholder={['Start Date', 'End Date']}
-                  size="small"
-                  allowClear
-                />
-              </div>
-            </Space>
-          </div>
-          <div>
-            <Space>
-              <Button
-                type="primary"
-                icon={<DownloadOutlined />}
-                onClick={handleExportCSV}
-                loading={exportLoading}
+      <Breadcrumb 
+        items={[
+          {
+            title: (
+              <Button 
+                type="primary" 
+                icon={<ArrowLeftOutlined />} 
+                onClick={handleGoBack}
+                className="bg-blue-600 hover:bg-blue-700 border-blue-600 hover:border-blue-700 text-white font-medium shadow-md hover:shadow-lg transition-all duration-200"
+                size="small"
               >
-                Export CSV
+                Admin Dashboard
               </Button>
-              <Navigation />
-            </Space>
+            )
+          },
+          {
+            title: (
+              <Button
+                type="default"
+                size="small"
+                onClick={() => navigate('/admin/projects')}
+                className="text-blue-600 hover:text-blue-700 border-blue-600 hover:border-blue-700"
+              >
+                Back to Project List
+              </Button>
+            )
+          }
+        ]}
+      />
+      
+      {/* 项目信息和操作按钮 */}
+      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+        <div className="flex-1">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
+            <Text type="secondary" className="text-xs sm:text-sm break-words">Code: {drillData?.project.projectCode}</Text>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <Text type="secondary" className="text-xs sm:text-sm whitespace-nowrap">Date Range:</Text>
+              <DatePicker.RangePicker
+                value={dateRange}
+                onChange={(dates) => {
+                  setIsUserDateSelection(true);
+                  setDateRange(dates);
+                }}
+                format="YYYY-MM-DD"
+                placeholder={['Start Date', 'End Date']}
+                size="small"
+                allowClear
+                className="w-full sm:w-auto"
+              />
+            </div>
           </div>
         </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={handleExportCSV}
+            loading={exportLoading}
+            size="small"
+            className="w-full sm:w-auto"
+          >
+            <span className="text-xs sm:text-sm">Export CSV</span>
+          </Button>
+        </div>
       </div>
+    </div>
+  );
+
+  return (
+    <PageLayout
+      title={drillData?.project.name || 'Project Drill-down'}
+      description={`Detailed analytics and insights for ${drillData?.project.name || 'project'}`}
+      icon={<ProjectOutlined />}
+      extra={extraContent}
+    >
 
       {/* 项目统计概览 */}
-      <Row gutter={16} className="mb-6">
-        <Col span={6}>
-          <Card>
+      <Row gutter={[16, 16]} className="mb-6">
+        <Col xs={12} sm={12} md={6} lg={6}>
+          <Card className="h-full">
             <Statistic
-              title="Total Hours"
+              title={<span className="text-xs sm:text-sm">Total Hours</span>}
               value={totalProjectHours}
-              prefix={<ClockCircleOutlined />}
-              suffix="hrs"
+              prefix={<ClockCircleOutlined className="text-sm" />}
+              suffix={<span className="text-xs sm:text-sm">hrs</span>}
               precision={1}
+              valueStyle={{ fontSize: '1.2rem' }}
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card>
+        <Col xs={12} sm={12} md={6} lg={6}>
+          <Card className="h-full">
             <Statistic
-              title="Approved Hours"
+              title={<span className="text-xs sm:text-sm">Approved Hours</span>}
               value={totalApprovedHours}
-              prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-              suffix="hrs"
+              prefix={<ClockCircleOutlined className="text-sm" />}
+              valueStyle={{ color: '#52c41a', fontSize: '1.2rem' }}
+              suffix={<span className="text-xs sm:text-sm">hrs</span>}
               precision={1}
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card>
+        <Col xs={12} sm={12} md={6} lg={6}>
+          <Card className="h-full">
             <Statistic
-              title="First Timesheet Date"
+              title={<span className="text-xs sm:text-sm break-words">First Timesheet Date</span>}
               value={drillData?.globalFirstTimesheetDate ? dayjs(drillData.globalFirstTimesheetDate).format('YYYY-MM-DD') : 'No data'}
-              prefix={<CalendarOutlined />}
-              valueStyle={{ color: '#1890ff' }}
+              prefix={<CalendarOutlined className="text-sm" />}
+              valueStyle={{ color: '#1890ff', fontSize: '0.9rem' }}
             />
           </Card>
         </Col>
-        <Col span={6}>
-          <Card>
+        <Col xs={12} sm={12} md={6} lg={6}>
+          <Card className="h-full">
             <Statistic
-              title="Active Employees"
+              title={<span className="text-xs sm:text-sm">Active Employees</span>}
               value={drillData?.employeeStats.length || 0}
-              prefix={<TeamOutlined />}
-              valueStyle={{ color: '#1890ff' }}
+              prefix={<TeamOutlined className="text-sm" />}
+              valueStyle={{ color: '#1890ff', fontSize: '1.2rem' }}
             />
           </Card>
         </Col>
       </Row>
 
+      {/* Project Budget 卡片 */}
+        {drillData?.project?.description && (
+          <Row gutter={[16, 16]} className="mb-4 sm:mb-6">
+            <Col span={24}>
+              <Card
+                title={
+                  <Space className="flex-wrap">
+                    <FileTextOutlined className="text-sm" />
+                    <span className="text-sm sm:text-base font-medium">Project Budget</span>
+                  </Space>
+                }
+                className="shadow-sm"
+                styles={{ body: { padding: '12px 16px' } }}
+              >
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border-l-4 border-blue-500 mx-0">
+                  <Text className="text-sm sm:text-base break-words leading-relaxed block">
+                    {drillData.project.description}
+                  </Text>
+                </div>
+              </Card>
+            </Col>
+          </Row>
+        )}
+
       {/* 双饼图展示 */}
-      <Row gutter={16}>
+      <Row gutter={[16, 16]}>
         {/* 按阶段分布饼图 */}
-        <Col span={12}>
+        <Col xs={24} sm={24} md={12} lg={12}>
           <Card
             title={
               <Space>
                 <PieChartOutlined />
-                Stage Distribution
+                <span className="text-sm sm:text-base">Stage Distribution</span>
               </Space>
             }
-            className="h-96"
+            className="h-80 sm:h-96"
           >
             {stageChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -477,15 +519,15 @@ const ProjectDrilldown: React.FC = () => {
         </Col>
 
         {/* 按人员分布饼图 */}
-        <Col span={12}>
+        <Col xs={24} sm={24} md={12} lg={12}>
           <Card
             title={
               <Space>
                 <TeamOutlined />
-                Personnel Distribution (Top 10)
+                <span className="text-sm sm:text-base break-words">Personnel Distribution (Top 10)</span>
               </Space>
             }
-            className="h-96"
+            className="h-80 sm:h-96"
           >
             {employeeChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -516,7 +558,9 @@ const ProjectDrilldown: React.FC = () => {
           </Card>
         </Col>
       </Row>
-    </div>
+
+
+    </PageLayout>
   );
 };
 

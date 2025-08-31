@@ -482,6 +482,7 @@ router.get('/project-drill/:projectName', authenticateToken, requireLevel1Admin,
         id: project.id,
         name: project.name,
         projectCode: project.projectCode,
+        description: project.description, // 添加项目描述字段
       },
       stageStats: processedStageStats,
       employeeStats: processedEmployeeStats,

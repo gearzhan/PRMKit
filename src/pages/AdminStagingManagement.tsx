@@ -11,9 +11,6 @@ import {
   Popconfirm,
   Tag,
   Card,
-  Row,
-  Col,
-  Statistic,
   Typography,
   Tooltip,
   Switch,
@@ -25,7 +22,6 @@ import {
   DeleteOutlined,
   SearchOutlined,
   TagOutlined,
-  FileTextOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 import { ColumnsType } from 'antd/es/table';
@@ -81,12 +77,7 @@ const AdminStagingManagement: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [form] = Form.useForm<StageFormData>();
-  const [statistics, setStatistics] = useState({
-    total: 0,
-    active: 0,
-    inactive: 0,
-    categories: 0,
-  });
+
 
   // 获取类别列表
   const fetchCategories = async () => {
@@ -114,16 +105,6 @@ const AdminStagingManagement: React.FC = () => {
       const response = await stageAPI.getList(params);
       const stageList = response.stages || [];
       setStages(stageList);
-      
-      // 计算统计数据
-      const uniqueCategories = new Set(stageList.map((s: Stage) => s.category).filter(Boolean));
-      const stats = {
-        total: stageList.length,
-        active: stageList.filter((s: Stage) => s.isActive).length,
-        inactive: stageList.filter((s: Stage) => !s.isActive).length,
-        categories: uniqueCategories.size,
-      };
-      setStatistics(stats);
     } catch (error: any) {
       console.error('获取阶段列表失败:', error);
       if (error.response?.status === 401) {
@@ -320,50 +301,12 @@ const AdminStagingManagement: React.FC = () => {
       icon={<SettingOutlined />}
     >
 
-        {/* 统计卡片 */}
-        <Row gutter={16} style={{ marginBottom: '24px' }}>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Total Templates"
-                value={statistics.total}
-                prefix={<FileTextOutlined style={{ color: '#1890ff' }} />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Active Templates"
-                value={statistics.active}
-                prefix={<TagOutlined style={{ color: '#52c41a' }} />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Inactive Templates"
-                value={statistics.inactive}
-                prefix={<TagOutlined style={{ color: '#d9d9d9' }} />}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Categories"
-                value={statistics.categories}
-                prefix={<TagOutlined style={{ color: '#722ed1' }} />}
-              />
-            </Card>
-          </Col>
-        </Row>
+
 
         {/* 操作栏 */}
         <Card style={{ marginBottom: '16px' }}>
-          <Row gutter={16} align="middle">
-            <Col flex="auto">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+            <div style={{ flex: 1 }}>
               <Space size="middle">
                 <Input.Search
                   placeholder="Search by task ID, name, or description"
@@ -386,17 +329,17 @@ const AdminStagingManagement: React.FC = () => {
                   ))}
                 </Select>
               </Space>
-            </Col>
-            <Col>
+            </div>
+            <div>
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => openModal()}
               >
-                Add Template
+                Add New Stage
               </Button>
-            </Col>
-          </Row>
+            </div>
+          </div>
         </Card>
 
         {/* 阶段表格 */}
