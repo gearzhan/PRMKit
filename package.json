@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "client:dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node --max-old-space-size=4096 ./node_modules/.bin/tsc -b && node --max-old-space-size=4096 ./node_modules/.bin/vite build",
+    "build:memory-safe": "node --max-old-space-size=8192 --optimize-for-size ./node_modules/.bin/tsc -b && node --max-old-space-size=8192 --optimize-for-size ./node_modules/.bin/vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "check": "tsc --noEmit",

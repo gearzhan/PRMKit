@@ -6,6 +6,20 @@ import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 // https://vite.dev/config/
 export default defineConfig({
   base: '/',
+  build: {
+    // 优化构建性能和内存使用
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // 将大型依赖分离到单独的chunk中
+          vendor: ['react', 'react-dom'],
+          antd: ['antd'],
+          charts: ['chart.js', 'react-chartjs-2', 'recharts']
+        }
+      }
+    }
+  },
   plugins: [
     react({
       babel: {
