@@ -198,7 +198,7 @@ const EmployeeDrilldown: React.FC = () => {
   ];
 
   return (
-    <PageLayout>
+    <PageLayout title={drillData ? `Employee Details - ${drillData.employee.name}` : 'Employee Details'}>
       <div style={{ padding: '24px' }}>
         {/* 返回按钮和标题 */}
         <div style={{ marginBottom: '24px' }}>

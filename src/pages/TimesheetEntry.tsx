@@ -450,7 +450,7 @@ const TimesheetEntry: React.FC = () => {
                       className="w-full mt-1"
                       showSearch
                       filterOption={(input, option) =>
-                        (option?.children as string)?.toLowerCase().includes(input.toLowerCase())
+                        (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
                       }
                     >
                       {projects.map(project => (
@@ -472,7 +472,7 @@ const TimesheetEntry: React.FC = () => {
                       className="w-full mt-1"
                       showSearch
                       filterOption={(input, option) =>
-                        (option?.children as string)?.toLowerCase().includes(input.toLowerCase())
+                        (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
                       }
                     >
                       {stages.map(stage => (
@@ -493,8 +493,7 @@ const TimesheetEntry: React.FC = () => {
                       format="HH:mm"
                       minuteStep={15}
                       className="w-full mt-1"
-                      changeOnSelect
-                      needConfirm={false}
+
                     />
                   </div>
                 </Col>
@@ -508,8 +507,7 @@ const TimesheetEntry: React.FC = () => {
                       format="HH:mm"
                       minuteStep={15}
                       className="w-full mt-1"
-                      changeOnSelect
-                      needConfirm={false}
+
                     />
                   </div>
                 </Col>
