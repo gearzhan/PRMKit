@@ -363,7 +363,7 @@ export const adminApprovalAPI = {
     return response.data;
   },
   
-  // 批量重置工时表状态为SUBMITTED（仅Level 1管理员）
+  // 批量重置工时表状态为SUBMITTED（所有管理员可用）
   batchResetToSubmitted: async (timesheetIds: string[]) => {
     const response = await api.put('/admin/approvals/batch/reset-to-submitted', {
       timesheetIds,

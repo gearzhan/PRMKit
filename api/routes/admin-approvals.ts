@@ -631,8 +631,8 @@ router.get('/stats', authenticateToken, requireLevel1Admin, async (req: Authenti
   }
 });
 
-// 批量重置工时表状态为SUBMITTED（仅Level 1管理员）
-router.put('/batch/reset-to-submitted', authenticateToken, requireLevel1Admin, async (req: AuthenticatedRequest, res: Response) => {
+// 批量重置工时表状态为SUBMITTED（所有管理员可用）
+router.put('/batch/reset-to-submitted', authenticateToken, requireLevel2Manager, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { timesheetIds } = req.body;
     
@@ -654,20 +654,23 @@ router.put('/batch/reset-to-submitted', authenticateToken, requireLevel1Admin, a
       return res.status(404).json({ error: 'No timesheets found' });
     }
     
-    // 检查是否有已批准的记录，已批准的记录不能重置
+    // 只允许重置APPROVED状态的工时表
     const approvedTimesheets = timesheets.filter(t => t.status === 'APPROVED');
-    if (approvedTimesheets.length > 0) {
+    if (approvedTimesheets.length === 0) {
       return res.status(400).json({ 
-        error: 'Cannot reset approved timesheets',
-        approvedCount: approvedTimesheets.length 
+        error: 'No approved timesheets found to reset',
+        message: 'Only approved timesheets can be reset to submitted status'
       });
     }
+    
+    // 只处理APPROVED状态的工时表
+    const timesheetsToReset = approvedTimesheets;
     
     // 批量更新操作
     const operations = [];
     
     // 删除现有的审批记录
-    const existingApprovalIds = timesheets
+    const existingApprovalIds = timesheetsToReset
       .filter(t => t.approval)
       .map(t => t.approval!.id);
     
@@ -682,10 +685,11 @@ router.put('/batch/reset-to-submitted', authenticateToken, requireLevel1Admin, a
     }
     
     // 更新工时表状态为SUBMITTED
+    const timesheetIdsToReset = timesheetsToReset.map(t => t.id);
     operations.push(
       prisma.timesheet.updateMany({
         where: {
-          id: { in: timesheetIds },
+          id: { in: timesheetIdsToReset },
         },
         data: {
           status: 'SUBMITTED',
@@ -694,7 +698,7 @@ router.put('/batch/reset-to-submitted', authenticateToken, requireLevel1Admin, a
     );
     
     // 为每个工时表创建新的审批记录
-    for (const timesheet of timesheets) {
+    for (const timesheet of timesheetsToReset) {
       operations.push(
         prisma.approval.create({
           data: {
@@ -710,8 +714,8 @@ router.put('/batch/reset-to-submitted', authenticateToken, requireLevel1Admin, a
     await prisma.$transaction(operations);
     
     res.json({
-      message: `${timesheets.length} timesheets reset to submitted status successfully`,
-      resetCount: timesheets.length,
+      message: `${timesheetsToReset.length} approved timesheets reset to submitted status successfully`,
+      resetCount: timesheetsToReset.length,
     });
   } catch (error) {
     console.error('Admin batch reset to submitted error:', error);

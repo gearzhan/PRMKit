@@ -21,6 +21,7 @@ import {
   Avatar,
   Divider,
   Empty,
+  Popconfirm,
 } from 'antd';
 import PageLayout from '@/components/PageLayout';
 import {
@@ -192,16 +193,23 @@ const AdminApprovals: React.FC = () => {
     setExpandedEmployees(newExpanded);
   };
 
-  // 重置员工条目为submitted状态（仅Level 1 Staff可用）
+  // 重置员工条目为submitted状态（所有管理员可用）
   const handleResetToSubmitted = async (employeeGroup: EmployeeApprovalGroup) => {
     try {
-      // 获取该员工的所有timesheet IDs
-      const timesheetIds = employeeGroup.approvals.map(approval => approval.timesheet.id);
+      // 只获取APPROVED状态的timesheet IDs进行重置
+      const approvedTimesheetIds = employeeGroup.approvals
+        .filter(approval => approval.status === 'APPROVED')
+        .map(approval => approval.timesheet.id);
+      
+      if (approvedTimesheetIds.length === 0) {
+        message.warning('No approved entries to reset for this employee.');
+        return;
+      }
       
       // 使用管理员专用API批量重置工时表状态
-      const result = await adminApprovalAPI.batchResetToSubmitted(timesheetIds);
+      const result = await adminApprovalAPI.batchResetToSubmitted(approvedTimesheetIds);
       
-      message.success(result.message || `Successfully reset ${result.resetCount} timesheets to submitted status`);
+      message.success(result.message || `Successfully reset ${result.resetCount} approved timesheets to submitted status`);
       
       // 刷新数据
       fetchApprovals();
@@ -653,19 +661,29 @@ const AdminApprovals: React.FC = () => {
                              <span className="text-sm font-medium text-gray-700">
                                {employeeGroup.totalHours.toFixed(1)} hours
                              </span>
-                             {/* Level 1 Staff重置按钮 */}
+                             {/* 重置按钮 - 仅Level 1管理员可见 */}
                              {isLevel1Admin() && (
-                               <Button
-                                 type="text"
-                                 size="small"
-                                 onClick={(e) => {
-                                   e.stopPropagation();
+                               <Popconfirm
+                                 title="Reset to Submitted"
+                                 description={`Are you sure you want to reset ${employeeGroup.approvals.filter(a => a.status === 'APPROVED').length} approved timesheet(s) for ${employeeGroup.employeeName} back to submitted status?`}
+                                 onConfirm={(e) => {
+                                   e?.stopPropagation();
                                    handleResetToSubmitted(employeeGroup);
                                  }}
-                                 className="text-orange-600 hover:text-orange-700"
+                                 onCancel={(e) => e?.stopPropagation()}
+                                 okText="Yes, Reset"
+                                 cancelText="Cancel"
+                                 placement="topRight"
                                >
-                                 Reset to Submitted
-                               </Button>
+                                 <Button
+                                   type="text"
+                                   size="small"
+                                   onClick={(e) => e.stopPropagation()}
+                                   className="text-orange-600 hover:text-orange-700"
+                                 >
+                                   Reset to Submitted
+                                 </Button>
+                               </Popconfirm>
                              )}
                              {isExpanded ? (
                                <UpOutlined className="text-gray-500 transition-transform duration-200" />
