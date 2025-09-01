@@ -23,7 +23,7 @@ export const useTimesheetSubmission = ({
   const { message } = App.useApp();
   const [submitting, setSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 实际执行保存草稿的函数
@@ -125,7 +125,7 @@ export const useTimesheetSubmission = ({
       // 批量更新所有条目状态为DRAFT
       await timesheetAPI.batchUpdateStatus(selectedDate.format('YYYY-MM-DD'), 'DRAFT');
       
-      setLastSavedTime(new Date().toLocaleTimeString());
+      setLastSavedTime(new Date());
       message.success('Draft saved successfully');
       navigate('/timesheets');
     } catch (error: any) {
