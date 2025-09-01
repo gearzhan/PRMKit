@@ -136,6 +136,39 @@ export const timesheetAPI = {
     const response = await api.put('/timesheets/batch/status', { date, status });
     return response.data;
   },
+
+  // 覆盖指定日期的工时记录（删除现有记录并创建新记录）
+  overwriteDay: async (date: string, timesheetDataList: any[]) => {
+    try {
+      // 获取当天现有记录
+      const existingResponse = await timesheetAPI.getList({ 
+        startDate: date, 
+        endDate: date 
+      });
+      
+      // 删除现有记录（使用Promise.all并行删除提高效率）
+      if (existingResponse.timesheets && existingResponse.timesheets.length > 0) {
+        const deletePromises = existingResponse.timesheets
+          .filter((timesheet: any) => timesheet.id)
+          .map((timesheet: any) => timesheetAPI.delete(timesheet.id));
+        
+        await Promise.all(deletePromises);
+      }
+      
+      // 批量创建新记录（使用Promise.all并行创建）
+      if (timesheetDataList.length > 0) {
+        const createPromises = timesheetDataList.map(timesheetData => 
+          timesheetAPI.create(timesheetData)
+        );
+        await Promise.all(createPromises);
+      }
+      
+      return { success: true, message: 'Day records overwritten successfully' };
+    } catch (error) {
+      console.error('覆盖日期记录时出错:', error);
+      throw error;
+    }
+  },
 };
 
 // 项目相关API

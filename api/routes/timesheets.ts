@@ -519,9 +519,9 @@ router.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, res: 
       return res.status(404).json({ error: 'Timesheet not found or access denied' });
     }
     
-    // 只有草稿状态的工时可以删除
-    if (timesheet.status !== 'DRAFT') {
-      return res.status(400).json({ error: 'Only draft timesheets can be deleted' });
+    // 只有草稿和已提交状态的工时可以删除，已批准的不能删除
+    if (timesheet.status === 'APPROVED') {
+      return res.status(400).json({ error: 'Approved timesheets cannot be deleted' });
     }
     
     await prisma.timesheet.delete({

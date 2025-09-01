@@ -326,12 +326,57 @@ const Timesheets: React.FC = () => {
     }
   };
 
+  // 批量删除某日期下的所有记录（仅限非APPROVED状态）
+  const handleDeleteDay = async (date: string) => {
+    try {
+      // 找到该日期下的所有记录
+      const dailySummary = dailySummaries.find(summary => summary.date === date);
+      if (!dailySummary) {
+        message.error('No records found for this date');
+        return;
+      }
+
+      // 过滤出可删除的记录（非APPROVED状态）
+      const deletableRecords = dailySummary.records.filter(record => record.status !== 'APPROVED');
+      if (deletableRecords.length === 0) {
+        message.info('No deletable records found for this date');
+        return;
+      }
+
+      // 确认删除
+      modal.confirm({
+        title: 'Delete All Entries',
+        content: (
+          <div>
+            <p>Are you sure you want to delete all {deletableRecords.length} record(s) for {dayjs(date).format('MMM DD, YYYY')}?</p>
+            <p className="text-red-500 mt-2">This action cannot be undone.</p>
+          </div>
+        ),
+        okText: 'Delete',
+        okType: 'danger',
+        cancelText: 'Cancel',
+        onOk: async () => {
+          try {
+            // 批量删除所有可删除的记录
+            await Promise.all(deletableRecords.map(record => timesheetAPI.delete(record.id)));
+            message.success(`Successfully deleted ${deletableRecords.length} record(s)`);
+            fetchTimesheets();
+          } catch (error: any) {
+            message.error(error.response?.data?.error || 'Failed to delete records');
+          }
+        },
+      });
+    } catch (error: any) {
+       message.error(error.response?.data?.error || 'Failed to delete records');
+     }
+   };
+
   // 操作菜单
   const getActionMenu = (record: TimesheetRecord) => {
     const items: any[] = [];
 
-    // Draft状态下的操作：Edit, Submit, Delete
-    if (record.status === 'DRAFT') {
+    // Draft和Submitted状态下的操作：Edit, Delete
+    if (record.status === 'DRAFT' || record.status === 'SUBMITTED') {
       // Edit - 编辑操作
       items.push({
         key: 'edit',
@@ -340,17 +385,6 @@ const Timesheets: React.FC = () => {
         onClick: (info: any) => {
           info?.domEvent?.stopPropagation();
           navigate(`/timesheets/${record.id}/edit`);
-        },
-      });
-      
-      // Submit - 提交操作
-      items.push({
-        key: 'submit',
-        icon: <PlusOutlined />,
-        label: 'Submit',
-        onClick: (info: any) => {
-          info?.domEvent?.stopPropagation();
-          handleResubmit(record.id);
         },
       });
       
@@ -366,11 +400,25 @@ const Timesheets: React.FC = () => {
       });
     }
 
-    // Withdraw - 只有已提交的记录可以撤回
+    // Draft状态下的额外操作：Submit
+    if (record.status === 'DRAFT') {
+      // Submit - 提交操作
+      items.push({
+        key: 'submit',
+        icon: <PlusOutlined />,
+        label: 'Submit',
+        onClick: (info: any) => {
+          info?.domEvent?.stopPropagation();
+          handleResubmit(record.id);
+        },
+      });
+    }
+
+    // Submitted状态下的额外操作：Withdraw
     if (record.status === 'SUBMITTED') {
       items.push({
         key: 'withdraw',
-        icon: <DeleteOutlined />,
+        icon: <RollbackOutlined />,
         label: 'Withdraw',
         onClick: (info: any) => {
           info?.domEvent?.stopPropagation();
@@ -457,7 +505,7 @@ const Timesheets: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 120,
+      width: 160,
       render: (record: DailyTimesheetSummary) => (
         <Space size="small">
           <Tooltip title="Edit">
@@ -476,6 +524,16 @@ const Timesheets: React.FC = () => {
               icon={<SendOutlined />}
               disabled={record.primaryStatus !== 'DRAFT'}
               onClick={() => handleSubmitDay(record.date)}
+            />
+          </Tooltip>
+          <Tooltip title="Delete All Entries">
+            <Button
+              type="text"
+              size="small"
+              icon={<DeleteOutlined />}
+              disabled={record.primaryStatus === 'APPROVED'}
+              onClick={() => handleDeleteDay(record.date)}
+              danger
             />
           </Tooltip>
         </Space>
