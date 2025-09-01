@@ -660,6 +660,16 @@ router.post('/import/execute', authenticateToken, requireLevel1Admin, upload.sin
       return res.status(400).json({ error: 'Invalid data type' });
     }
 
+    // 验证操作员是否存在
+    const operator = await prisma.employee.findUnique({
+      where: { id: req.user!.userId },
+      select: { id: true }
+    });
+    
+    if (!operator) {
+      return res.status(400).json({ error: 'Operator not found in database' });
+    }
+
     // 创建导入日志
     const importLog = await prisma.csvImportLog.create({
       data: {
