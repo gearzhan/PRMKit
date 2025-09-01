@@ -660,14 +660,69 @@ router.post('/import/execute', authenticateToken, requireLevel1Admin, upload.sin
       return res.status(400).json({ error: 'Invalid data type' });
     }
 
-    // 验证操作员是否存在
-    const operator = await prisma.employee.findUnique({
+    // 验证操作员是否存在，如果不存在则自动创建默认管理员
+    let operator = await prisma.employee.findUnique({
       where: { id: req.user!.userId },
       select: { id: true }
     });
     
     if (!operator) {
-      return res.status(400).json({ error: 'Operator not found in database' });
+      console.log(`操作员 ${req.user!.userId} 不存在，自动创建默认管理员账户`);
+      
+      // 自动创建默认管理员操作员
+      const bcrypt = await import('bcryptjs');
+      const defaultPassword = await bcrypt.hash('admin0258', 10);
+      
+      try {
+        operator = await prisma.employee.create({
+          data: {
+            id: req.user!.userId, // 使用JWT中的userId作为ID
+            employeeId: 'SAIYU_001', // 默认管理员工号
+            name: 'System Admin',
+            email: 'admin@system.local',
+            password: defaultPassword,
+            role: 'LEVEL1', // 管理员权限
+            position: 'System Administrator',
+            isActive: true,
+          },
+          select: { id: true }
+        });
+        
+        console.log(`✅ 成功创建默认管理员操作员: ${operator.id}`);
+      } catch (createError: any) {
+        console.error('创建默认操作员失败:', createError);
+        
+        // 如果是唯一约束冲突（employeeId已存在），尝试使用随机工号
+        if (createError.code === 'P2002') {
+          const randomId = `ADMIN_${Date.now()}`;
+          try {
+            operator = await prisma.employee.create({
+              data: {
+                id: req.user!.userId,
+                employeeId: randomId,
+                name: 'System Admin',
+                email: `admin_${Date.now()}@system.local`,
+                password: defaultPassword,
+                role: 'LEVEL1',
+                position: 'System Administrator',
+                isActive: true,
+              },
+              select: { id: true }
+            });
+            
+            console.log(`✅ 使用随机工号创建默认管理员操作员: ${randomId}`);
+          } catch (retryError) {
+            console.error('重试创建默认操作员也失败:', retryError);
+            return res.status(500).json({ 
+              error: 'Failed to create default operator. Please contact administrator.' 
+            });
+          }
+        } else {
+          return res.status(500).json({ 
+            error: 'Failed to create default operator. Please contact administrator.' 
+          });
+        }
+      }
     }
 
     // 创建导入日志

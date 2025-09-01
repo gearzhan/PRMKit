@@ -29,6 +29,7 @@ dist-ssr
 .env.*.local
 prisma/dev.db
 prisma/data.db
+prisma/migrations
 dist/*
 
 # PM2 相关
