@@ -42,6 +42,7 @@ pids
 # 运行时文件
 uploads/*
 !uploads/.gitkeep
+temp/*
 
 # 监控和性能分析
 *.cpuprofile

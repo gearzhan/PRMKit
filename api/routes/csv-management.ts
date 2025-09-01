@@ -151,6 +151,54 @@ function convertTimesheetData(row: any): any {
     convertedRow.hours = Math.round(diffHours * 4) / 4;
     
     console.log(`✅ Using provided start/end times, calculated hours: ${convertedRow.hours}`);
+  } else if (!row.startTime && !row.endTime && !row.hours && !row.duration) {
+    // 如果既没有开始/结束时间，也没有工作时长，则生成默认的8小时工作时间
+    const dateStr = row.date;
+    
+    let startTime: Date;
+    try {
+      // 尝试解析日期，支持多种格式
+      if (typeof dateStr === 'string') {
+        if (dateStr.includes('T') || dateStr.includes('Z')) {
+          startTime = new Date(dateStr);
+        } else if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          startTime = new Date(`${dateStr}T09:00:00`);
+        } else if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+          const [day, month, year] = dateStr.split('/');
+          startTime = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T09:00:00`);
+        } else {
+          startTime = new Date(dateStr);
+          if (!isNaN(startTime.getTime())) {
+            startTime.setHours(9, 0, 0, 0);
+          }
+        }
+      } else if (dateStr instanceof Date) {
+        startTime = new Date(dateStr);
+        startTime.setHours(9, 0, 0, 0);
+      } else {
+        throw new Error('Invalid date format');
+      }
+      
+      if (isNaN(startTime.getTime())) {
+        throw new Error('Invalid date value');
+      }
+    } catch (error) {
+      console.error(`❌ Invalid date in timesheet data: ${dateStr}`, error);
+      throw new Error(`Invalid date format: ${dateStr}`);
+    }
+    
+    // 生成默认的8小时工作时间（9:00-17:00）
+    const endTime = new Date(startTime);
+    endTime.setHours(17, 0, 0, 0);
+    
+    convertedRow.startTime = startTime.toISOString();
+    convertedRow.endTime = endTime.toISOString();
+    convertedRow.hours = 8;
+    
+    console.log(`🔄 Generated default timesheet data for empty row:`);
+    console.log(`  - Date: ${dateStr}`);
+    console.log(`  - Generated: ${startTime.toISOString()} - ${endTime.toISOString()}`);
+    console.log(`  - Hours: 8`);
   }
   
   // 清理不需要的字段
@@ -1193,6 +1241,10 @@ async function validateTimesheetsData(rows: any[], errors: any[], duplicates: an
     // 验证每一行数据
     rows.forEach(row => {
       try {
+        // 在验证之前先转换数据，处理空时间字段
+        const convertedRow = convertTimesheetData(row);
+        // 将转换后的数据合并回原行
+        Object.assign(row, convertedRow);
         // 验证必填字段
         if (!row.employeeId) {
           errors.push({
@@ -1275,60 +1327,79 @@ async function validateTimesheetsData(rows: any[], errors: any[], duplicates: an
           });
         }
         
+        // 时间格式解析辅助函数
+        // 支持HH:MM格式和ISO时间戳格式（如2024-11-10T22:00:00.000Z）
+        function parseTimeString(timeStr: string): { hours: number; minutes: number } | null {
+          if (!timeStr || timeStr.trim() === '') {
+            return null;
+          }
+          
+          const trimmedTime = timeStr.trim();
+          
+          // 检查是否为HH:MM格式
+          const timePattern = /^\d{1,2}:\d{2}$/;
+          if (timePattern.test(trimmedTime)) {
+            const [hours, minutes] = trimmedTime.split(':').map(Number);
+            if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+              return { hours, minutes };
+            }
+            return null;
+          }
+          
+          // 检查是否为ISO时间戳格式
+          try {
+            const date = new Date(trimmedTime);
+            if (!isNaN(date.getTime())) {
+              const hours = date.getHours();
+              const minutes = date.getMinutes();
+              return { hours, minutes };
+            }
+          } catch (error) {
+            // 忽略解析错误，继续尝试其他格式
+          }
+          
+          return null;
+        }
+        
         // 验证开始时间格式（可选字段）
         if (row.startTime && row.startTime.trim() !== '') {
-          const timePattern = /^\d{1,2}:\d{2}$/;
-          if (!timePattern.test(row.startTime)) {
+          const parsedStartTime = parseTimeString(row.startTime);
+          if (!parsedStartTime) {
             errors.push({
               rowNumber: row.rowNumber,
-              errors: [{ field: 'startTime', message: 'Invalid start time format. Expected HH:MM', value: row.startTime }],
+              errors: [{ field: 'startTime', message: 'Invalid start time format. Expected HH:MM or ISO timestamp', value: row.startTime }],
             });
-          } else {
-            const [hours, minutes] = row.startTime.split(':').map(Number);
-            if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-              errors.push({
-                rowNumber: row.rowNumber,
-                errors: [{ field: 'startTime', message: 'Invalid start time. Hours: 0-23, Minutes: 0-59', value: row.startTime }],
-              });
-            }
           }
         }
         
         // 验证结束时间格式（可选字段）
         if (row.endTime && row.endTime.trim() !== '') {
-          const timePattern = /^\d{1,2}:\d{2}$/;
-          if (!timePattern.test(row.endTime)) {
+          const parsedEndTime = parseTimeString(row.endTime);
+          if (!parsedEndTime) {
             errors.push({
               rowNumber: row.rowNumber,
-              errors: [{ field: 'endTime', message: 'Invalid end time format. Expected HH:MM', value: row.endTime }],
+              errors: [{ field: 'endTime', message: 'Invalid end time format. Expected HH:MM or ISO timestamp', value: row.endTime }],
             });
-          } else {
-            const [hours, minutes] = row.endTime.split(':').map(Number);
-            if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-              errors.push({
-                rowNumber: row.rowNumber,
-                errors: [{ field: 'endTime', message: 'Invalid end time. Hours: 0-23, Minutes: 0-59', value: row.endTime }],
-              });
-            }
           }
         }
         
         // 验证开始时间和结束时间的逻辑关系
         if (row.startTime && row.endTime && row.startTime.trim() !== '' && row.endTime.trim() !== '') {
-          try {
-            const [startHours, startMinutes] = row.startTime.split(':').map(Number);
-            const [endHours, endMinutes] = row.endTime.split(':').map(Number);
-            const startTotalMinutes = startHours * 60 + startMinutes;
-            const endTotalMinutes = endHours * 60 + endMinutes;
+          const parsedStartTime = parseTimeString(row.startTime);
+          const parsedEndTime = parseTimeString(row.endTime);
+          
+          if (parsedStartTime && parsedEndTime) {
+            const startTotalMinutes = parsedStartTime.hours * 60 + parsedStartTime.minutes;
+            const endTotalMinutes = parsedEndTime.hours * 60 + parsedEndTime.minutes;
             
-            if (startTotalMinutes >= endTotalMinutes) {
+            // 只有当开始时间严格大于结束时间时才报错
+            // 如果开始时间等于结束时间，跳过验证（可能是占位符数据）
+            if (startTotalMinutes > endTotalMinutes) {
               errors.push({
                 rowNumber: row.rowNumber,
                 errors: [{ field: 'endTime', message: 'End time must be after start time', value: `${row.startTime} - ${row.endTime}` }],
               });
             }
-          } catch (error) {
-            // 时间格式错误已在上面处理
           }
         }
         
