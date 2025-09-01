@@ -321,17 +321,16 @@ const AdminApprovals: React.FC = () => {
       if (dateRange && dateRange[0] && dateRange[1]) {
         params.startDate = dateRange[0].format('YYYY-MM-DD');
         params.endDate = dateRange[1].format('YYYY-MM-DD');
-        console.log('Frontend: 日期筛选参数', { startDate: params.startDate, endDate: params.endDate });
+        // 日期筛选参数设置完成
       }
       
-      console.log('Frontend: 开始获取审批列表', { tab, params });
-      console.log('Frontend: Token存在?', !!localStorage.getItem('token'));
+      // 开始获取审批列表
       
       const response = tab === 'pending' 
         ? await adminApprovalAPI.getPending(params)
         : await adminApprovalAPI.getHistory(params);
       
-      console.log('Frontend: API响应成功', response);
+      // API响应成功
       const approvalsData = response.approvals || [];
       setApprovals(approvalsData);
       
@@ -374,7 +373,7 @@ const AdminApprovals: React.FC = () => {
       if (dateRange && dateRange[0] && dateRange[1]) {
         params.startDate = dateRange[0].format('YYYY-MM-DD');
         params.endDate = dateRange[1].format('YYYY-MM-DD');
-        console.log('Frontend: 统计信息日期筛选参数', { startDate: params.startDate, endDate: params.endDate });
+        // 统计信息日期筛选参数设置完成
       }
       if (projectFilter) params.projectId = projectFilter;
       
@@ -1052,12 +1051,7 @@ const AdminApprovals: React.FC = () => {
                 <RangePicker
                   value={dateRange}
                   onChange={(dates) => {
-                    console.log('Frontend: 日期范围变更', {
-                      dates,
-                      isValid: dates && dates[0] && dates[1],
-                      startDate: dates?.[0]?.format('YYYY-MM-DD'),
-                      endDate: dates?.[1]?.format('YYYY-MM-DD')
-                    });
+                    // 日期范围变更
                     setDateRange(dates);
                   }}
                   format="YYYY-MM-DD"

@@ -127,11 +127,6 @@ const AdminDashboard: React.FC = () => {
   // 组件挂载和月份变化时获取数据
   useEffect(() => {
     const monthStr = selectedMonth.format('YYYY-MM');
-    console.log('Frontend: AdminDashboard useEffect - 月份变化', { 
-      selectedMonth: monthStr, 
-      storeSelectedMonth,
-      needsUpdate: monthStr !== storeSelectedMonth 
-    });
     if (monthStr !== storeSelectedMonth) {
       handleMonthChange(monthStr);
     }
@@ -139,30 +134,15 @@ const AdminDashboard: React.FC = () => {
 
   // 初始化数据加载
   useEffect(() => {
-    console.log('Frontend: AdminDashboard 初始化检查', { 
-      hasStats: !!stats, 
-      hasChartData: !!chartData,
-      selectedMonth: selectedMonth.format('YYYY-MM')
-    });
     if (!stats && !chartData) {
       const monthStr = selectedMonth.format('YYYY-MM');
-      console.log('Frontend: 开始初始化数据加载', { monthStr });
       refreshAll(monthStr);
     }
   }, []);
 
   // 监听数据变化
   useEffect(() => {
-    console.log('Frontend: AdminDashboard 数据状态更新', {
-      stats,
-      chartData,
-      statsLoading,
-      chartLoading,
-      statsError,
-      chartError,
-      hasProjectStats: chartData?.projectStats?.length || 0,
-      hasEmployeeStats: chartData?.employeeStats?.length || 0
-    });
+    // 数据状态更新时的处理逻辑可以在这里添加
   }, [stats, chartData, statsLoading, chartLoading, statsError, chartError]);
 
 

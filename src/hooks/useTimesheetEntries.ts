@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 import { timesheetAPI } from '../lib/api';
 import { Project, Stage } from './useTimesheetData';
+
+// 启用dayjs时区插件
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 // 时间表条目接口
 interface TimesheetEntryItem {
@@ -48,15 +54,18 @@ export const useTimesheetEntries = ({
 
   const timeOptions = generateTimeOptions();
 
-  // 计算工时（精确计算，不进行向上取整）
+  // 计算工时（与后端保持一致：四舍五入到最近的15分钟）
   const calculateHours = useCallback((startTime: Dayjs, endTime: Dayjs): number => {
     if (!startTime || !endTime) return 0;
     
-    const diffMinutes = endTime.diff(startTime, 'minute');
-    if (diffMinutes <= 0) return 0;
+    const diffMs = endTime.valueOf() - startTime.valueOf();
+    if (diffMs <= 0) return 0;
     
-    // 精确计算小时数，保留两位小数
-    return Math.round((diffMinutes / 60) * 100) / 100;
+    // 转换为小时
+    const hours = diffMs / (1000 * 60 * 60);
+    
+    // 四舍五入到最近的15分钟（0.25小时）
+    return Math.round(hours * 4) / 4;
   }, []);
 
   // 创建默认条目
@@ -108,17 +117,47 @@ export const useTimesheetEntries = ({
       const dateStr = date.format('YYYY-MM-DD');
       const response = await timesheetAPI.getList({ startDate: dateStr, endDate: dateStr });
       
+
+      
       if (response.timesheets && response.timesheets.length > 0) {
         // 转换现有记录为条目格式
-        const existingEntries = response.timesheets.map((timesheet: any, index: number) => ({
-          id: timesheet.id || `existing-${index}`,
-          projectId: timesheet.projectId || '',
-          stageId: timesheet.stageId || '',
-          startTime: dayjs(timesheet.startTime),
-          endTime: dayjs(timesheet.endTime),
-          description: timesheet.description || '',
-          hours: timesheet.hours || 0,
-        }));
+        const existingEntries = response.timesheets.map((timesheet: any, index: number) => {
+          // 修复时区问题：直接解析UTC时间字符串，避免时区转换
+          // 从UTC时间字符串中提取时间部分（如："2025-09-01T09:00:00.000Z" -> "09:00"）
+          const startTimeStr = timesheet.startTime; // 例如："2025-09-01T09:00:00.000Z"
+          const endTimeStr = timesheet.endTime;     // 例如："2025-09-01T13:00:00.000Z"
+          
+          // 提取UTC时间的小时和分钟部分
+          const startTimeMatch = startTimeStr.match(/T(\d{2}):(\d{2})/);
+          const endTimeMatch = endTimeStr.match(/T(\d{2}):(\d{2})/);
+          
+          if (!startTimeMatch || !endTimeMatch) {
+            console.error('时间格式解析失败:', { startTimeStr, endTimeStr });
+            return null;
+          }
+          
+          const startHour = parseInt(startTimeMatch[1], 10);
+          const startMinute = parseInt(startTimeMatch[2], 10);
+          const endHour = parseInt(endTimeMatch[1], 10);
+          const endMinute = parseInt(endTimeMatch[2], 10);
+          
+          // 使用当前日期和提取的UTC时间构造本地dayjs对象
+          const startTimeDayjs = date.hour(startHour).minute(startMinute).second(0);
+          const endTimeDayjs = date.hour(endHour).minute(endMinute).second(0);
+          
+
+          
+          return {
+            id: timesheet.id || `existing-${index}`,
+            projectId: timesheet.projectId || '',
+            stageId: timesheet.stageId || '',
+            startTime: startTimeDayjs,
+            endTime: endTimeDayjs,
+            description: timesheet.description || '',
+            hours: timesheet.hours || 0,
+          };
+        }).filter(entry => entry !== null); // 过滤掉解析失败的条目
+        
         // 按开始时间排序
         const sortedEntries = existingEntries.sort((a, b) => {
           if (!a.startTime || !b.startTime) return 0;

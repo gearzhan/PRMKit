@@ -28,8 +28,9 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
       return res.status(400).json({ error: validation.error });
     }
     
-    // 计算工时
-    const hours = calculateHours(startTime, endTime);
+    // 使用前端传递的工时值，不重新计算
+    // const hours = calculateHours(startTime, endTime); // 注释掉重新计算
+    // 直接使用前端传递的hours值
     
     // 检查项目是否存在（项目对全公司共享，不区分权限）
     const project = await prisma.project.findUnique({
@@ -62,6 +63,16 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
     const endDateTime = new Date(endTime);
     const workDate = new Date(date); // 确保workDate仍然是基于当天的日期
 
+    // 调试日志：记录接收到的hours值
+    console.log('🔍 [DEBUG] Backend received hours (POST):', {
+      receivedHours: req.body.hours,
+      convertedHours: Number(req.body.hours),
+      projectId,
+      startTime: startTime,
+      endTime: endTime,
+      userId: req.user!.userId
+    });
+    
     // 创建工时记录
     const timesheetData: any = {
       employeeId: req.user!.userId,
@@ -69,7 +80,7 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
       date: workDate,
       startTime: startDateTime,
       endTime: endDateTime,
-      hours,
+      hours: Number(req.body.hours),
       description,
       status: 'DRAFT',
     };
@@ -92,7 +103,7 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
       },
       update: {
         endTime: endDateTime,
-        hours,
+        hours: Number(req.body.hours),
         description,
         stageId: stageId || null,
         updatedAt: new Date(),
@@ -329,20 +340,31 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
       return res.status(400).json({ error: 'Only draft timesheets can be modified' });
     }
     
+    // 调试日志：记录接收到的hours值
+    console.log('🔍 [DEBUG] Backend received hours (PUT):', {
+      receivedHours: req.body.hours,
+      existingHours: existingTimesheet.hours,
+      projectId: projectId || existingTimesheet.projectId,
+      startTime: startTime,
+      endTime: endTime,
+      userId: req.user!.userId
+    });
+    
     // 验证工时（如果提供了时间）
-    let hours = Number(existingTimesheet.hours);
+    let finalHours = req.body.hours !== undefined ? Number(req.body.hours) : Number(existingTimesheet.hours);
     if (startTime && endTime) {
       const validation = validateTimesheet(startTime, endTime);
       if (!validation.isValid) {
         return res.status(400).json({ error: validation.error });
       }
-      hours = calculateHours(startTime, endTime);
+      // 使用前端传递的工时值，不重新计算
+      // hours = calculateHours(startTime, endTime); // 注释掉重新计算
     }
     
     // 处理时间字段
     let updateData: any = {
       projectId: projectId || existingTimesheet.projectId,
-      hours,
+      hours: finalHours,
       description: description !== undefined ? description : existingTimesheet.description,
     };
     

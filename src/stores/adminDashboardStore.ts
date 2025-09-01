@@ -119,13 +119,11 @@ export const useAdminDashboardStore = create<AdminDashboardState & AdminDashboar
       try {
         set({ statsLoading: true, statsError: null });
         
-        console.log('Frontend: 开始获取仪表板统计数据', { month });
-        console.log('Frontend: Token存在?', !!localStorage.getItem('token'));
+        // 开始获取仪表板统计数据
         
         const response = await adminDashboardAPI.getStats(month);
         
-        console.log('Frontend: 统计数据API响应成功', response);
-        console.log('Frontend: 统计数据内容', response);
+        // 统计数据API响应成功
         
         set({
           stats: response, // 直接使用 response，不是 response.data
@@ -159,18 +157,11 @@ export const useAdminDashboardStore = create<AdminDashboardState & AdminDashboar
       try {
         set({ chartLoading: true, chartError: null });
         
-        console.log('Frontend: 开始获取图表数据', { month });
-        console.log('Frontend: Token存在?', !!localStorage.getItem('token'));
+        // 开始获取图表数据
         
         const response = await adminDashboardAPI.getChartData(month);
         
-        console.log('Frontend: 图表数据API响应成功', response);
-        console.log('Frontend: 图表数据结构', {
-          hasProjectStats: !!response.projectStats,
-          hasEmployeeStats: !!response.employeeStats,
-          projectStatsLength: response.projectStats?.length || 0,
-          employeeStatsLength: response.employeeStats?.length || 0
-        });
+        // 图表数据API响应成功
         
         // 转换数据结构以匹配前端接口
         const chartData: ChartData = {
@@ -178,7 +169,7 @@ export const useAdminDashboardStore = create<AdminDashboardState & AdminDashboar
           employeeStats: response.employeeStats || []
         };
         
-        console.log('Frontend: 转换后的图表数据', chartData);
+        // 转换后的图表数据
         
         set({
           chartData: chartData,

@@ -44,6 +44,8 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({
   }, []);
 
   const displayHours = calculateDisplayHours(entry.startTime, entry.endTime);
+  
+  // 时区问题已在useTimesheetEntries中修复
 
   return (
     <Card key={entry.id} size="small" className="border-l-4 border-l-blue-500">
@@ -134,7 +136,8 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({
           <div>
             <Text strong>Hours:</Text>
             <div className="mt-1 p-2 bg-gray-50 rounded text-center font-semibold text-green-600">
-              {displayHours.toFixed(2)}h
+              {/* 优先显示保存的hours值，如果没有则显示计算值 */}
+              {(entry.hours !== undefined && entry.hours !== null ? entry.hours : displayHours).toFixed(2)}h
             </div>
           </div>
         </Col>

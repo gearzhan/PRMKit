@@ -732,7 +732,7 @@ const Timesheets: React.FC = () => {
                         </div>
                         <div className="text-right">
                           <div className="font-medium">
-                            {dayjs(timesheet.startTime).format('HH:mm')} - {dayjs(timesheet.endTime).format('HH:mm')}
+                            {timesheet.startTime.substring(11, 16)} - {timesheet.endTime.substring(11, 16)}
                           </div>
                           <div className="text-blue-600">{timesheet.hours}h</div>
                           <Tag color={statusConfig[timesheet.status].color} className="text-xs mt-1">

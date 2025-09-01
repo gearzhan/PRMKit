@@ -103,12 +103,24 @@ export const useTimesheetSubmission = ({
           endTimeISO = `${dateStr}T${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}:00.000Z`;
         }
 
+        // 计算工时（与后端保持一致：四舍五入到最近的15分钟）
+        let hours = 0;
+        if (entry.startTime && entry.endTime) {
+          const diffMs = entry.endTime.valueOf() - entry.startTime.valueOf();
+          const diffHours = diffMs / (1000 * 60 * 60);
+          // 四舍五入到最近的15分钟（0.25小时）
+          hours = Math.round(diffHours * 4) / 4;
+          
+          // 计算工时完成
+        }
+
         return {
           projectId: entry.projectId,
           stageId: entry.stageId || undefined,
           date: selectedDate.format('YYYY-MM-DD'),
           startTime: startTimeISO,
           endTime: endTimeISO,
+          hours: hours,
           description: entry.description || '',
         };
       });
@@ -184,7 +196,7 @@ export const useTimesheetSubmission = ({
     }, 300); // 300ms 防抖延迟
   }, [isSaving, submitting, performSaveDraft]);
 
-  // 提交审批（同样优化逻辑）
+  // 提交审批（修复重复提交问题）
   const handleSubmitForApproval = useCallback(async () => {
     // 防止重复提交
     if (isSaving || submitting) {
@@ -195,17 +207,21 @@ export const useTimesheetSubmission = ({
       setIsSaving(true);
       setSubmitting(true);
       
+      // 开始提交审批流程
+      
       // 提交审批验证：要求所有字段完整
       const validEntries = entries.filter(entry => 
         entry.projectId && entry.stageId && entry.startTime && entry.endTime
       );
+      
+      // 验证有效条目
       
       if (validEntries.length === 0) {
         message.warning('Please fill in at least one complete entry (project, stage, start time, and end time) to submit for approval');
         return;
       }
       
-      // 优化：使用批量创建而不是循环调用
+      // 使用overwriteDay方法，避免重复创建记录
       const timesheetDataList = validEntries.map(entry => {
         // 使用更稳定的时间格式化方法，确保在所有环境中都能正确解析
         const startHour = entry.startTime!.hour();
@@ -218,48 +234,36 @@ export const useTimesheetSubmission = ({
         const startTimeISO = `${dateStr}T${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}:00.000Z`;
         const endTimeISO = `${dateStr}T${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}:00.000Z`;
 
+        // 计算工时（与后端保持一致：四舍五入到最近的15分钟）
+        const diffMs = entry.endTime!.valueOf() - entry.startTime!.valueOf();
+        const diffHours = diffMs / (1000 * 60 * 60);
+        const hours = Math.round(diffHours * 4) / 4;
+        
+        // 计算工时完成
+
         return {
           projectId: entry.projectId,
           stageId: entry.stageId || undefined,
           date: selectedDate.format('YYYY-MM-DD'),
           startTime: startTimeISO,
           endTime: endTimeISO,
+          hours: hours,
           description: entry.description || '',
         };
       });
       
-      // 先删除当天的所有记录，然后批量创建新记录
-      // 这样可以避免重复条目的问题
       const dateStr = selectedDate.format('YYYY-MM-DD');
+      // 准备覆盖日期记录
       
-      try {
-        const existingResponse = await timesheetAPI.getList({ 
-          startDate: dateStr, 
-          endDate: dateStr 
-        });
-        
-        // 删除现有记录（使用Promise.all并行删除提高效率）
-        if (existingResponse.timesheets && existingResponse.timesheets.length > 0) {
-          const deletePromises = existingResponse.timesheets
-            .filter(timesheet => timesheet.id)
-            .map(timesheet => timesheetAPI.delete(timesheet.id));
-          
-          await Promise.all(deletePromises);
-        }
-        
-        // 批量创建新记录（使用Promise.all并行创建）
-        const createPromises = timesheetDataList.map(timesheetData => 
-          timesheetAPI.create(timesheetData)
-        );
-        await Promise.all(createPromises);
-        
-      } catch (error) {
-        console.error('提交记录时出错:', error);
-        throw error; // 重新抛出错误以便上层处理
-      }
+      // 使用overwriteDay方法一次性处理所有记录
+      await timesheetAPI.overwriteDay(dateStr, timesheetDataList);
+      
+      // 记录创建完成，开始更新状态
       
       // 批量更新所有条目状态为SUBMITTED
-      await timesheetAPI.batchUpdateStatus(selectedDate.format('YYYY-MM-DD'), 'SUBMITTED');
+      await timesheetAPI.batchUpdateStatus(dateStr, 'SUBMITTED');
+      
+      // 提交审批流程完成
       
       message.success('Submitted for approval successfully');
       navigate('/timesheets');
@@ -267,6 +271,7 @@ export const useTimesheetSubmission = ({
       console.error('提交审批失败:', error);
       message.error(error.response?.data?.error || 'Failed to submit for approval');
     } finally {
+      // 重置提交状态
       setIsSaving(false);
       setSubmitting(false);
     }

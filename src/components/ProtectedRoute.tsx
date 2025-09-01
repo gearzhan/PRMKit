@@ -33,7 +33,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (token && !user && !isLoading) {
       getCurrentUser().catch(() => {
         // 获取用户信息失败，可能token已过期
-        console.log('Failed to get user info, redirecting to login');
       });
     }
   }, [user, isLoading, getCurrentUser]);

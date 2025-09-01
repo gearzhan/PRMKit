@@ -41,13 +41,12 @@ const Login: React.FC = () => {
       // 登录成功后会通过useEffect重定向
     } catch (error) {
       // 错误已经在store中处理
-      console.error('Login failed:', error);
     }
   };
   
   // 处理表单验证失败
   const handleSubmitFailed = (errorInfo: any) => {
-    console.log('Form validation failed:', errorInfo);
+    // 表单验证失败处理
   };
   
   return (
