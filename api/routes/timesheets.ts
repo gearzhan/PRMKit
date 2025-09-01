@@ -63,15 +63,7 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
     const endDateTime = new Date(endTime);
     const workDate = new Date(date); // 确保workDate仍然是基于当天的日期
 
-    // 调试日志：记录接收到的hours值
-    console.log('🔍 [DEBUG] Backend received hours (POST):', {
-      receivedHours: req.body.hours,
-      convertedHours: Number(req.body.hours),
-      projectId,
-      startTime: startTime,
-      endTime: endTime,
-      userId: req.user!.userId
-    });
+
     
     // 创建工时记录
     const timesheetData: any = {
@@ -340,15 +332,7 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
       return res.status(400).json({ error: 'Only draft timesheets can be modified' });
     }
     
-    // 调试日志：记录接收到的hours值
-    console.log('🔍 [DEBUG] Backend received hours (PUT):', {
-      receivedHours: req.body.hours,
-      existingHours: existingTimesheet.hours,
-      projectId: projectId || existingTimesheet.projectId,
-      startTime: startTime,
-      endTime: endTime,
-      userId: req.user!.userId
-    });
+
     
     // 验证工时（如果提供了时间）
     let finalHours = req.body.hours !== undefined ? Number(req.body.hours) : Number(existingTimesheet.hours);

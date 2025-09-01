@@ -73,9 +73,9 @@ const Profile: React.FC = () => {
   // 获取角色显示文本
   const getRoleText = (role: string) => {
     const roleMap: Record<string, { text: string; color: string }> = {
-      LEVEL1: { text: '系统管理员', color: 'red' },
-      LEVEL2: { text: '项目经理', color: 'blue' },
-      LEVEL3: { text: '普通员工', color: 'green' },
+      LEVEL1: { text: 'System Administrator', color: 'red' },
+      LEVEL2: { text: 'Project Manager', color: 'blue' },
+      LEVEL3: { text: 'Employee', color: 'green' },
     };
     return roleMap[role] || { text: role, color: 'default' };
   };
@@ -91,10 +91,10 @@ const Profile: React.FC = () => {
       // 刷新用户信息
       await getCurrentUser();
       
-      message.success('个人信息更新成功');
+      message.success('Profile updated successfully');
       setEditMode(false);
     } catch (error: any) {
-      message.error(error.message || '更新个人信息失败');
+      message.error(error.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
@@ -106,11 +106,11 @@ const Profile: React.FC = () => {
     try {
       await authAPI.changePassword(values.currentPassword, values.newPassword);
       
-      message.success('密码修改成功');
+      message.success('Password changed successfully');
       setPasswordModalVisible(false);
       passwordForm.resetFields();
     } catch (error: any) {
-      message.error(error.message || '密码修改失败');
+      message.error(error.message || 'Failed to change password');
     } finally {
       setPasswordLoading(false);
     }
@@ -130,7 +130,7 @@ const Profile: React.FC = () => {
 
   if (!user) {
     return (
-      <PageLayout title="个人资料" icon={<UserOutlined />}>
+      <PageLayout title="Profile" icon={<UserOutlined />}>
         <div className="flex justify-center items-center h-64">
           <Spin size="large" />
         </div>
@@ -142,27 +142,27 @@ const Profile: React.FC = () => {
 
   return (
     <PageLayout
-      title="个人资料"
-      description="查看和管理您的个人信息"
+      title="Profile"
+      description="View and manage your personal information"
       icon={<UserOutlined />}
     >
       <Row gutter={[24, 24]}>
         {/* 基本信息卡片 */}
         <Col xs={24} lg={16}>
           <Card
-            title="基本信息"
+            title="Basic Information"
             extra={
               <Space>
                 {editMode ? (
                   <>
-                    <Button onClick={handleCancelEdit}>取消</Button>
+                    <Button onClick={handleCancelEdit}>Cancel</Button>
                     <Button
                       type="primary"
                       icon={<SaveOutlined />}
                       loading={loading}
                       onClick={() => userInfoForm.submit()}
                     >
-                      保存
+                      Save
                     </Button>
                   </>
                 ) : (
@@ -171,7 +171,7 @@ const Profile: React.FC = () => {
                     icon={<EditOutlined />}
                     onClick={() => setEditMode(true)}
                   >
-                    编辑
+                    Edit
                   </Button>
                 )}
               </Space>
@@ -186,35 +186,35 @@ const Profile: React.FC = () => {
               <Row gutter={16}>
                 <Col xs={24} sm={12}>
                   <Form.Item
-                    label="姓名"
+                    label="Name"
                     name="name"
                     rules={[
-                      { required: true, message: '请输入姓名' },
-                      { min: 2, message: '姓名至少2个字符' },
+                      { required: true, message: 'Please enter your name' },
+                      { min: 2, message: 'Name must be at least 2 characters' },
                     ]}
                   >
-                    <Input placeholder="请输入姓名" />
+                    <Input placeholder="Please enter your name" />
                   </Form.Item>
                 </Col>
                 <Col xs={24} sm={12}>
                   <Form.Item
-                    label="邮箱"
+                    label="Email"
                     name="email"
                     rules={[
-                      { required: true, message: '请输入邮箱' },
-                      { type: 'email', message: '请输入有效的邮箱地址' },
+                      { required: true, message: 'Please enter your email' },
+                      { type: 'email', message: 'Please enter a valid email address' },
                     ]}
                   >
-                    <Input placeholder="请输入邮箱" disabled />
+                    <Input placeholder="Please enter your email" disabled />
                   </Form.Item>
                 </Col>
                 <Col xs={24} sm={12}>
                   <Form.Item
-                    label="职位"
+                    label="Position"
                     name="position"
-                    rules={[{ required: true, message: '请输入职位' }]}
+                    rules={[{ required: true, message: 'Please enter your position' }]}
                   >
-                    <Input placeholder="请输入职位" disabled />
+                    <Input placeholder="Please enter your position" disabled />
                   </Form.Item>
                 </Col>
               </Row>
@@ -224,7 +224,7 @@ const Profile: React.FC = () => {
 
         {/* 账户信息卡片 */}
         <Col xs={24} lg={8}>
-          <Card title="账户信息">
+          <Card title="Account Information">
             <Space direction="vertical" size="middle" className="w-full">
               {/* 用户头像 */}
               <div className="text-center">
@@ -242,21 +242,21 @@ const Profile: React.FC = () => {
               {/* 账户详情 */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <Text strong>员工ID:</Text>
+                  <Text strong>Employee ID:</Text>
                   <Text>{user.employeeId}</Text>
                 </div>
                 <div className="flex justify-between items-center">
-                  <Text strong>角色:</Text>
+                  <Text strong>Role:</Text>
                   <Tag color={roleInfo.color}>{roleInfo.text}</Tag>
                 </div>
                 <div className="flex justify-between items-center">
-                  <Text strong>状态:</Text>
+                  <Text strong>Status:</Text>
                   <Tag color={user.isActive ? 'green' : 'red'}>
-                    {user.isActive ? '激活' : '停用'}
+                    {user.isActive ? 'Active' : 'Inactive'}
                   </Tag>
                 </div>
                 <div className="flex justify-between items-center">
-                  <Text strong>创建时间:</Text>
+                  <Text strong>Created At:</Text>
                   <Text type="secondary">
                     {new Date(user.createdAt).toLocaleDateString()}
                   </Text>
@@ -272,7 +272,7 @@ const Profile: React.FC = () => {
                 block
                 onClick={() => setPasswordModalVisible(true)}
               >
-                修改密码
+                Change Password
               </Button>
             </Space>
           </Card>
@@ -281,7 +281,7 @@ const Profile: React.FC = () => {
 
       {/* 修改密码模态框 */}
       <Modal
-          title="修改密码"
+          title="Change Password"
           open={passwordModalVisible}
           onCancel={() => {
             setPasswordModalVisible(false);
@@ -296,12 +296,12 @@ const Profile: React.FC = () => {
           onFinish={handleChangePassword}
         >
           <Form.Item
-            label="当前密码"
+            label="Current Password"
             name="currentPassword"
-            rules={[{ required: true, message: '请输入当前密码' }]}
+            rules={[{ required: true, message: 'Please enter your current password' }]}
           >
             <Input.Password
-              placeholder="请输入当前密码"
+              placeholder="Please enter your current password"
               iconRender={(visible) =>
                 visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
               }
@@ -309,15 +309,15 @@ const Profile: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            label="新密码"
+            label="New Password"
             name="newPassword"
             rules={[
-              { required: true, message: '请输入新密码' },
-              { min: 6, message: '密码至少6个字符' },
+              { required: true, message: 'Please enter your new password' },
+              { min: 6, message: 'Password must be at least 6 characters' },
             ]}
           >
             <Input.Password
-              placeholder="请输入新密码"
+              placeholder="Please enter your new password"
               iconRender={(visible) =>
                 visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
               }
@@ -325,23 +325,23 @@ const Profile: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            label="确认新密码"
+            label="Confirm New Password"
             name="confirmPassword"
             dependencies={['newPassword']}
             rules={[
-              { required: true, message: '请确认新密码' },
+              { required: true, message: 'Please confirm your new password' },
               ({ getFieldValue }) => ({
                 validator(_, value) {
                   if (!value || getFieldValue('newPassword') === value) {
                     return Promise.resolve();
                   }
-                  return Promise.reject(new Error('两次输入的密码不一致'));
+                  return Promise.reject(new Error('The two passwords do not match'));
                 },
               }),
             ]}
           >
             <Input.Password
-              placeholder="请再次输入新密码"
+              placeholder="Please enter your new password again"
               iconRender={(visible) =>
                 visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />
               }
@@ -356,14 +356,14 @@ const Profile: React.FC = () => {
                   passwordForm.resetFields();
                 }}
               >
-                取消
+                Cancel
               </Button>
               <Button
                 type="primary"
                 htmlType="submit"
                 loading={passwordLoading}
               >
-                确认修改
+                Confirm Change
               </Button>
             </Space>
           </Form.Item>
