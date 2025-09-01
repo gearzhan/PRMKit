@@ -68,6 +68,7 @@ interface EmployeeFormData {
   name: string;
   email: string;
   password?: string;
+  confirmPassword?: string;
   role: string;
   position?: string;
   isActive: boolean;
@@ -182,10 +183,25 @@ const AdminEmployeeList: React.FC = () => {
     try {
       const values = await form.validateFields();
       
+      // 处理编辑模式下的密码字段
       if (editingEmployee) {
-        // 更新员工
+        // 保存密码值用于后续处理
+        const newPassword = values.password;
+        
+        // 移除密码相关字段，不通过用户更新API发送
+        delete values.password;
+        delete values.confirmPassword;
+        
+        // 更新员工基本信息
         await api.put(`/auth/users/${editingEmployee.id}`, values);
-        message.success('Employee updated successfully');
+        
+        // 如果提供了新密码，单独调用密码重置API
+        if (newPassword) {
+          await api.put(`/auth/users/${editingEmployee.id}/reset-password`, { password: newPassword });
+          message.success('Employee updated successfully with new password');
+        } else {
+          message.success('Employee updated successfully');
+        }
       } else {
         // 创建员工
         await api.post('/auth/users', values);
@@ -581,6 +597,37 @@ const AdminEmployeeList: React.FC = () => {
             >
               <Input.Password placeholder="Enter initial password" />
             </Form.Item>
+          )}
+
+          {editingEmployee && (
+            <>
+              <Form.Item
+                label="New Password (Optional)"
+                name="password"
+                rules={[
+                  { min: 6, message: 'Password must be at least 6 characters' },
+                ]}
+              >
+                <Input.Password placeholder="Enter new password (leave blank to keep current)" />
+              </Form.Item>
+              <Form.Item
+                label="Confirm New Password"
+                name="confirmPassword"
+                dependencies={['password']}
+                rules={[
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (!value || getFieldValue('password') === value) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(new Error('The two passwords do not match!'));
+                    },
+                  }),
+                ]}
+              >
+                <Input.Password placeholder="Confirm new password" />
+              </Form.Item>
+            </>
           )}
 
           <Row gutter={16}>
