@@ -717,7 +717,9 @@ const Timesheets: React.FC = () => {
               <div className="bg-gray-50 p-4 rounded">
                 <h4 className="font-medium mb-3">Detailed Records for {dayjs(record.date).format('MMM DD, YYYY')}</h4>
                 <div className="space-y-2">
-                  {record.records.map((timesheet, index) => (
+                  {record.records
+                    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                    .map((timesheet, index) => (
                     <div key={timesheet.id} className="bg-white p-3 rounded border text-sm">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">

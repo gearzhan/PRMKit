@@ -73,36 +73,43 @@ export const useTimesheetEntries = ({
     const adminProject = projects.find(p => p.projectCode === 'OA' || p.name.toLowerCase().includes('admin'));
     const administrationStage = stages.find(s => s.name === 'Administration');
     
+    const entry1StartTime = dayjs().hour(9).minute(0).second(0);
+    const entry1EndTime = dayjs().hour(13).minute(0).second(0);
+    const entry2StartTime = dayjs().hour(14).minute(0).second(0);
+    const entry2EndTime = dayjs().hour(17).minute(30).second(0);
+    const entry3StartTime = dayjs().hour(17).minute(30).second(0);
+    const entry3EndTime = dayjs().hour(18).minute(0).second(0);
+    
     return [
       {
         id: 'default-1',
         projectId: '',
         stageId: '',
-        startTime: dayjs().hour(9).minute(0).second(0),
-        endTime: dayjs().hour(13).minute(0).second(0),
+        startTime: entry1StartTime,
+        endTime: entry1EndTime,
         description: '',
-        hours: 0,
+        hours: calculateHours(entry1StartTime, entry1EndTime),
       },
       {
         id: 'default-2',
         projectId: '',
         stageId: '',
-        startTime: dayjs().hour(14).minute(0).second(0),
-        endTime: dayjs().hour(17).minute(30).second(0),
+        startTime: entry2StartTime,
+        endTime: entry2EndTime,
         description: '',
-        hours: 0,
+        hours: calculateHours(entry2StartTime, entry2EndTime),
       },
       {
         id: 'default-3',
         projectId: adminProject?.id || '',
         stageId: administrationStage?.id || '',
-        startTime: dayjs().hour(17).minute(30).second(0),
-        endTime: dayjs().hour(18).minute(0).second(0),
+        startTime: entry3StartTime,
+        endTime: entry3EndTime,
         description: '',
-        hours: 0,
+        hours: calculateHours(entry3StartTime, entry3EndTime),
       },
     ];
-  }, [projects, stages]);
+  }, [projects, stages, calculateHours]);
 
   // 获取现有工时记录
   const fetchExistingTimesheet = useCallback(async (date: Dayjs) => {
@@ -188,14 +195,17 @@ export const useTimesheetEntries = ({
 
   // 添加新条目
   const addEntry = useCallback(() => {
+    const startTime = dayjs().hour(9).minute(0).second(0);
+    const endTime = dayjs().hour(17).minute(0).second(0);
+    
     const newEntry: TimesheetEntryItem = {
       id: `entry-${Date.now()}`,
       projectId: '',
       stageId: '',
-      startTime: dayjs().hour(9).minute(0).second(0),
-      endTime: dayjs().hour(17).minute(0).second(0),
+      startTime: startTime,
+      endTime: endTime,
       description: '',
-      hours: 0,
+      hours: calculateHours(startTime, endTime), // 使用计算得出的小时数
     };
     setEntries(prevEntries => {
       const updatedEntries = [...prevEntries, newEntry];
@@ -205,7 +215,7 @@ export const useTimesheetEntries = ({
         return a.startTime.valueOf() - b.startTime.valueOf();
       });
     });
-  }, []);
+  }, [calculateHours]);
 
   // 删除条目
   const removeEntry = useCallback((entryId: string) => {
