@@ -83,19 +83,32 @@ export const useTimesheetSubmission = ({
       
       // 优化：使用批量创建而不是循环调用（草稿允许部分字段为空）
       const timesheetDataList = validDraftEntries.map(entry => {
-        const startDateTime = entry.startTime
-          ? selectedDate.hour(entry.startTime.hour()).minute(entry.startTime.minute()).second(0).millisecond(0)
-          : null;
-        const endDateTime = entry.endTime
-          ? selectedDate.hour(entry.endTime.hour()).minute(entry.endTime.minute()).second(0).millisecond(0)
-          : null;
+        // 使用更稳定的时间格式化方法，确保在所有环境中都能正确解析
+        let startTimeISO = null;
+        let endTimeISO = null;
+        
+        if (entry.startTime) {
+          const startHour = entry.startTime.hour();
+          const startMinute = entry.startTime.minute();
+          // 构建标准的 ISO 8601 格式字符串
+          const dateStr = selectedDate.format('YYYY-MM-DD');
+          startTimeISO = `${dateStr}T${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}:00.000Z`;
+        }
+        
+        if (entry.endTime) {
+          const endHour = entry.endTime.hour();
+          const endMinute = entry.endTime.minute();
+          // 构建标准的 ISO 8601 格式字符串
+          const dateStr = selectedDate.format('YYYY-MM-DD');
+          endTimeISO = `${dateStr}T${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}:00.000Z`;
+        }
 
         return {
           projectId: entry.projectId,
           stageId: entry.stageId || undefined,
           date: selectedDate.format('YYYY-MM-DD'),
-          startTime: startDateTime ? startDateTime.toISOString() : null,
-          endTime: endDateTime ? endDateTime.toISOString() : null,
+          startTime: startTimeISO,
+          endTime: endTimeISO,
           description: entry.description || '',
         };
       });
@@ -194,15 +207,23 @@ export const useTimesheetSubmission = ({
       
       // 优化：使用批量创建而不是循环调用
       const timesheetDataList = validEntries.map(entry => {
-        const startDateTime = selectedDate.hour(entry.startTime!.hour()).minute(entry.startTime!.minute()).second(0).millisecond(0);
-        const endDateTime = selectedDate.hour(entry.endTime!.hour()).minute(entry.endTime!.minute()).second(0).millisecond(0);
+        // 使用更稳定的时间格式化方法，确保在所有环境中都能正确解析
+        const startHour = entry.startTime!.hour();
+        const startMinute = entry.startTime!.minute();
+        const endHour = entry.endTime!.hour();
+        const endMinute = entry.endTime!.minute();
+        
+        // 构建标准的 ISO 8601 格式字符串
+        const dateStr = selectedDate.format('YYYY-MM-DD');
+        const startTimeISO = `${dateStr}T${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}:00.000Z`;
+        const endTimeISO = `${dateStr}T${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}:00.000Z`;
 
         return {
           projectId: entry.projectId,
           stageId: entry.stageId || undefined,
           date: selectedDate.format('YYYY-MM-DD'),
-          startTime: startDateTime.toISOString(),
-          endTime: endDateTime.toISOString(),
+          startTime: startTimeISO,
+          endTime: endTimeISO,
           description: entry.description || '',
         };
       });
