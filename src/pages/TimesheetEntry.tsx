@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Input,
@@ -74,6 +74,8 @@ const TimesheetEntry: React.FC = () => {
   // 状态管理
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // 新增：防止重复保存
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 防抖定时器
   const [projects, setProjects] = useState<Project[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
   const [selectedDate, setSelectedDate] = useState<Dayjs>(initialDate);
@@ -261,9 +263,28 @@ const TimesheetEntry: React.FC = () => {
     }
   };
 
-  // 保存草稿
-  const handleSaveDraft = async () => {
+  // 保存草稿（带防抖和优化逻辑）
+  const handleSaveDraft = useCallback(() => {
+    // 防抖：清除之前的定时器
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    // 防止重复保存
+    if (isSaving || submitting) {
+      return;
+    }
+    
+    // 设置防抖延迟
+    saveTimeoutRef.current = setTimeout(async () => {
+      await performSaveDraft();
+    }, 300); // 300ms 防抖延迟
+  }, [isSaving, submitting]);
+  
+  // 实际执行保存草稿的函数
+  const performSaveDraft = async () => {
     try {
+      setIsSaving(true);
       setSubmitting(true);
       
       // 验证必填字段
@@ -276,17 +297,41 @@ const TimesheetEntry: React.FC = () => {
         return;
       }
       
-      // 先保存/更新每个条目的数据
-      for (const entry of validEntries) {
-        const timesheetData = {
-          projectId: entry.projectId,
-          stageId: entry.stageId || undefined, // 如果stageId为空字符串，传undefined
-          date: selectedDate.format('YYYY-MM-DD'),
-          startTime: entry.startTime.format('HH:mm'),
-          endTime: entry.endTime.format('HH:mm'),
-          description: entry.description || '',
-        };
+      // 优化：使用批量创建而不是循环调用
+      const timesheetDataList = validEntries.map(entry => ({
+        projectId: entry.projectId,
+        stageId: entry.stageId || undefined,
+        date: selectedDate.format('YYYY-MM-DD'),
+        startTime: entry.startTime.format('HH:mm'),
+        endTime: entry.endTime.format('HH:mm'),
+        description: entry.description || '',
+      }));
+      
+      // 先删除当天的所有记录，然后批量创建新记录
+      // 这样可以避免重复条目的问题
+      try {
+        // 获取当天现有记录
+        const dateStr = selectedDate.format('YYYY-MM-DD');
+        const existingResponse = await timesheetAPI.getList({ 
+          startDate: dateStr, 
+          endDate: dateStr 
+        });
         
+        // 删除现有记录
+        if (existingResponse.timesheets && existingResponse.timesheets.length > 0) {
+          for (const timesheet of existingResponse.timesheets) {
+            if (timesheet.id) {
+              await timesheetAPI.delete(timesheet.id);
+            }
+          }
+        }
+      } catch (deleteError) {
+        console.warn('删除现有记录时出错:', deleteError);
+        // 继续执行，不中断保存流程
+      }
+      
+      // 批量创建新记录
+      for (const timesheetData of timesheetDataList) {
         await timesheetAPI.create(timesheetData);
       }
       
@@ -299,13 +344,20 @@ const TimesheetEntry: React.FC = () => {
       console.error('保存草稿失败:', error);
       message.error(error.response?.data?.error || 'Failed to save draft');
     } finally {
+      setIsSaving(false);
       setSubmitting(false);
     }
   };
 
-  // 提交审批
+  // 提交审批（同样优化逻辑）
   const handleSubmitForApproval = async () => {
+    // 防止重复提交
+    if (isSaving || submitting) {
+      return;
+    }
+    
     try {
+      setIsSaving(true);
       setSubmitting(true);
       
       // 验证必填字段
@@ -318,17 +370,37 @@ const TimesheetEntry: React.FC = () => {
         return;
       }
       
-      // 先保存/更新每个条目的数据
-      for (const entry of validEntries) {
-        const timesheetData = {
-          projectId: entry.projectId,
-          stageId: entry.stageId || undefined,
-          date: selectedDate.format('YYYY-MM-DD'),
-          startTime: entry.startTime.format('HH:mm'),
-          endTime: entry.endTime.format('HH:mm'),
-          description: entry.description || '',
-        };
+      // 优化：使用批量创建而不是循环调用
+      const timesheetDataList = validEntries.map(entry => ({
+        projectId: entry.projectId,
+        stageId: entry.stageId || undefined,
+        date: selectedDate.format('YYYY-MM-DD'),
+        startTime: entry.startTime.format('HH:mm'),
+        endTime: entry.endTime.format('HH:mm'),
+        description: entry.description || '',
+      }));
+      
+      // 先删除当天的所有记录，然后批量创建新记录
+      try {
+        const dateStr = selectedDate.format('YYYY-MM-DD');
+        const existingResponse = await timesheetAPI.getList({ 
+          startDate: dateStr, 
+          endDate: dateStr 
+        });
         
+        if (existingResponse.timesheets && existingResponse.timesheets.length > 0) {
+          for (const timesheet of existingResponse.timesheets) {
+            if (timesheet.id) {
+              await timesheetAPI.delete(timesheet.id);
+            }
+          }
+        }
+      } catch (deleteError) {
+        console.warn('删除现有记录时出错:', deleteError);
+      }
+      
+      // 批量创建新记录
+      for (const timesheetData of timesheetDataList) {
         await timesheetAPI.create(timesheetData);
       }
       
@@ -341,6 +413,7 @@ const TimesheetEntry: React.FC = () => {
       console.error('提交审批失败:', error);
       message.error(error.response?.data?.error || 'Failed to submit for approval');
     } finally {
+      setIsSaving(false);
       setSubmitting(false);
     }
   };
@@ -372,6 +445,15 @@ const TimesheetEntry: React.FC = () => {
   useEffect(() => {
     calculateTotalHours();
   }, [entries, calculateTotalHours]);
+  
+  // 清理定时器，防止内存泄漏
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -579,14 +661,16 @@ const TimesheetEntry: React.FC = () => {
         <Button
           size="large"
           onClick={handleSaveDraft}
-          loading={submitting}
+          loading={isSaving || submitting}
+          disabled={isSaving || submitting}
         >Save Draft</Button>
         
         <Button
           type="primary"
           size="large"
           onClick={handleSubmitForApproval}
-          loading={submitting}
+          loading={isSaving || submitting}
+          disabled={isSaving || submitting}
         >Submit for Approval</Button>
       </div>
     </div>
