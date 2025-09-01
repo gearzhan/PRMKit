@@ -23,7 +23,7 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
     }
     
     // 验证工时
-    const validation = validateTimesheet(startTime, endTime, date);
+    const validation = validateTimesheet(startTime, endTime);
     if (!validation.isValid) {
       return res.status(400).json({ error: validation.error });
     }
@@ -57,17 +57,11 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
     
     // 移除了7.6小时的每日工时限制检查
     
-    // 创建完整的DateTime对象
-    const workDate = new Date(date);
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-    
-    const startDateTime = new Date(workDate);
-    startDateTime.setUTCHours(startHour, startMinute, 0, 0);
-    
-    const endDateTime = new Date(workDate);
-    endDateTime.setUTCHours(endHour, endMinute, 0, 0);
-    
+    // 从ISO字符串创建Date对象
+    const startDateTime = new Date(startTime);
+    const endDateTime = new Date(endTime);
+    const workDate = new Date(date); // 确保workDate仍然是基于当天的日期
+
     // 创建工时记录
     const timesheetData: any = {
       employeeId: req.user!.userId,
@@ -337,8 +331,8 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
     
     // 验证工时（如果提供了时间）
     let hours = Number(existingTimesheet.hours);
-    if (startTime && endTime && date) {
-      const validation = validateTimesheet(startTime, endTime, date);
+    if (startTime && endTime) {
+      const validation = validateTimesheet(startTime, endTime);
       if (!validation.isValid) {
         return res.status(400).json({ error: validation.error });
       }
@@ -363,20 +357,12 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
       updateData.date = new Date(date);
     }
     
-    if (startTime && date) {
-      const workDate = new Date(date);
-      const [startHour, startMinute] = startTime.split(':').map(Number);
-      const startDateTime = new Date(workDate);
-      startDateTime.setUTCHours(startHour, startMinute, 0, 0);
-      updateData.startTime = startDateTime;
+    if (startTime) {
+      updateData.startTime = new Date(startTime);
     }
     
-    if (endTime && date) {
-      const workDate = new Date(date);
-      const [endHour, endMinute] = endTime.split(':').map(Number);
-      const endDateTime = new Date(workDate);
-      endDateTime.setUTCHours(endHour, endMinute, 0, 0);
-      updateData.endTime = endDateTime;
+    if (endTime) {
+      updateData.endTime = new Date(endTime);
     }
     
     // 更新工时记录

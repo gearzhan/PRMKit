@@ -82,14 +82,23 @@ export const useTimesheetSubmission = ({
       }
       
       // 优化：使用批量创建而不是循环调用（草稿允许部分字段为空）
-      const timesheetDataList = validDraftEntries.map(entry => ({
-        projectId: entry.projectId,
-        stageId: entry.stageId || undefined,
-        date: selectedDate.format('YYYY-MM-DD'),
-        startTime: entry.startTime ? entry.startTime.format('HH:mm') : null,
-        endTime: entry.endTime ? entry.endTime.format('HH:mm') : null,
-        description: entry.description || '',
-      }));
+      const timesheetDataList = validDraftEntries.map(entry => {
+        const startDateTime = entry.startTime
+          ? selectedDate.hour(entry.startTime.hour()).minute(entry.startTime.minute()).second(0).millisecond(0)
+          : null;
+        const endDateTime = entry.endTime
+          ? selectedDate.hour(entry.endTime.hour()).minute(entry.endTime.minute()).second(0).millisecond(0)
+          : null;
+
+        return {
+          projectId: entry.projectId,
+          stageId: entry.stageId || undefined,
+          date: selectedDate.format('YYYY-MM-DD'),
+          startTime: startDateTime ? startDateTime.toISOString() : null,
+          endTime: endDateTime ? endDateTime.toISOString() : null,
+          description: entry.description || '',
+        };
+      });
       
       // 先删除当天的所有记录，然后批量创建新记录
       // 这样可以避免重复条目的问题
@@ -184,16 +193,22 @@ export const useTimesheetSubmission = ({
       }
       
       // 优化：使用批量创建而不是循环调用
-      const timesheetDataList = validEntries.map(entry => ({
-        projectId: entry.projectId,
-        stageId: entry.stageId || undefined,
-        date: selectedDate.format('YYYY-MM-DD'),
-        startTime: entry.startTime.format('HH:mm'),
-        endTime: entry.endTime.format('HH:mm'),
-        description: entry.description || '',
-      }));
+      const timesheetDataList = validEntries.map(entry => {
+        const startDateTime = selectedDate.hour(entry.startTime!.hour()).minute(entry.startTime!.minute()).second(0).millisecond(0);
+        const endDateTime = selectedDate.hour(entry.endTime!.hour()).minute(entry.endTime!.minute()).second(0).millisecond(0);
+
+        return {
+          projectId: entry.projectId,
+          stageId: entry.stageId || undefined,
+          date: selectedDate.format('YYYY-MM-DD'),
+          startTime: startDateTime.toISOString(),
+          endTime: endDateTime.toISOString(),
+          description: entry.description || '',
+        };
+      });
       
       // 先删除当天的所有记录，然后批量创建新记录
+      // 这样可以避免重复条目的问题
       const dateStr = selectedDate.format('YYYY-MM-DD');
       
       try {

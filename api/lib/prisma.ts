@@ -20,8 +20,8 @@ export default prisma;
 
 // 工时计算工具函数
 export const calculateHours = (startTime: string, endTime: string): number => {
-  const start = new Date(`1970-01-01T${startTime}`);
-  const end = new Date(`1970-01-01T${endTime}`);
+  const start = new Date(startTime);
+  const end = new Date(endTime);
   
   // 计算时间差（毫秒）
   const diffMs = end.getTime() - start.getTime();
@@ -34,9 +34,9 @@ export const calculateHours = (startTime: string, endTime: string): number => {
 };
 
 // 验证工时是否符合规则
-export const validateTimesheet = (startTime: string, endTime: string, date: string): { isValid: boolean; error?: string } => {
-  const start = new Date(`${date}T${startTime}`);
-  const end = new Date(`${date}T${endTime}`);
+export const validateTimesheet = (startTime: string, endTime: string): { isValid: boolean; error?: string } => {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
   
   // 检查结束时间是否晚于开始时间
   if (end <= start) {
