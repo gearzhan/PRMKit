@@ -207,6 +207,16 @@ router.put('/users/:id', authenticateToken, async (req: AuthenticatedRequest, re
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
+    // 检查用户是否存在
+    const existingUser = await prisma.employee.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     // 普通用户不能修改角色和激活状态
     const updateData: any = {
       name,
