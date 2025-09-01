@@ -63,10 +63,10 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
     const [endHour, endMinute] = endTime.split(':').map(Number);
     
     const startDateTime = new Date(workDate);
-    startDateTime.setHours(startHour, startMinute, 0, 0);
+    startDateTime.setUTCHours(startHour, startMinute, 0, 0);
     
     const endDateTime = new Date(workDate);
-    endDateTime.setHours(endHour, endMinute, 0, 0);
+    endDateTime.setUTCHours(endHour, endMinute, 0, 0);
     
     // 创建工时记录
     const timesheetData: any = {
@@ -367,7 +367,7 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
       const workDate = new Date(date);
       const [startHour, startMinute] = startTime.split(':').map(Number);
       const startDateTime = new Date(workDate);
-      startDateTime.setHours(startHour, startMinute, 0, 0);
+      startDateTime.setUTCHours(startHour, startMinute, 0, 0);
       updateData.startTime = startDateTime;
     }
     
@@ -375,7 +375,7 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
       const workDate = new Date(date);
       const [endHour, endMinute] = endTime.split(':').map(Number);
       const endDateTime = new Date(workDate);
-      endDateTime.setHours(endHour, endMinute, 0, 0);
+      endDateTime.setUTCHours(endHour, endMinute, 0, 0);
       updateData.endTime = endDateTime;
     }
     
