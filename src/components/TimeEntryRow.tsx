@@ -59,9 +59,12 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({
               placeholder="Select project"
               className="w-full mt-1"
               showSearch
-              filterOption={(input, option) =>
-                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
-              }
+              filterOption={(input, option) => {
+                const project = projects.find(p => p.id === option?.value);
+                if (!project) return false;
+                const searchText = `${project.projectCode} - ${project.name}`.toLowerCase();
+                return searchText.includes(input.toLowerCase());
+              }}
             >
               {projects.map(project => (
                 <Option key={project.id} value={project.id}>
@@ -81,9 +84,11 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({
               placeholder="Select stage"
               className="w-full mt-1"
               showSearch
-              filterOption={(input, option) =>
-                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
-              }
+              filterOption={(input, option) => {
+                const stage = stages.find(s => s.id === option?.value);
+                if (!stage) return false;
+                return stage.name.toLowerCase().includes(input.toLowerCase());
+              }}
             >
               {stages.map(stage => (
                 <Option key={stage.id} value={stage.id}>

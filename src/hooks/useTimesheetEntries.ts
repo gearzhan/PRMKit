@@ -207,14 +207,7 @@ export const useTimesheetEntries = ({
       description: '',
       hours: calculateHours(startTime, endTime), // 使用计算得出的小时数
     };
-    setEntries(prevEntries => {
-      const updatedEntries = [...prevEntries, newEntry];
-      // 按开始时间排序
-      return updatedEntries.sort((a, b) => {
-        if (!a.startTime || !b.startTime) return 0;
-        return a.startTime.valueOf() - b.startTime.valueOf();
-      });
-    });
+    setEntries(prevEntries => [...prevEntries, newEntry]);
   }, [calculateHours]);
 
   // 删除条目
@@ -225,7 +218,7 @@ export const useTimesheetEntries = ({
   // 更新条目
   const updateEntry = useCallback((entryId: string, field: keyof TimesheetEntryItem, value: any) => {
     setEntries(prevEntries => {
-      const updatedEntries = prevEntries.map(entry => {
+      return prevEntries.map(entry => {
         if (entry.id === entryId) {
           const updatedEntry = { ...entry, [field]: value };
           
@@ -237,12 +230,6 @@ export const useTimesheetEntries = ({
           return updatedEntry;
         }
         return entry;
-      });
-      
-      // 按开始时间排序条目
-      return updatedEntries.sort((a, b) => {
-        if (!a.startTime || !b.startTime) return 0;
-        return a.startTime.valueOf() - b.startTime.valueOf();
       });
     });
   }, [calculateHours]);

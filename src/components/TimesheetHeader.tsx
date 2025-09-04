@@ -71,6 +71,15 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
             <li>• Invalid entries will not be saved nor submitted.</li>
           </ul>
         </div>
+        
+        {/* Recent Bug Fixes Summary */}
+        <div className="mt-3 p-3 bg-green-50 border-l-4 border-green-400 rounded">
+          <Text strong className="text-green-800">Recent Bug Fixes:</Text>
+          <ul className="mt-2 ml-4 text-sm text-green-700">
+            <li>• Fixed search functionality in Project dropdown - you can now search by project code or name</li>
+            <li>• Fixed search functionality in Stage dropdown - you can now search by stage name</li>
+          </ul>
+        </div>
       </Card>
     </>
   );
