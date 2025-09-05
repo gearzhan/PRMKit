@@ -1,7 +1,6 @@
 import React, { useCallback } from 'react';
-import { Card, Row, Col, Select, TimePicker, Input, Button, Popconfirm, Typography } from 'antd';
+import { Card, Row, Col, Select, Input, Button, Popconfirm, Typography } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
-import dayjs, { Dayjs } from 'dayjs';
 import { TimesheetEntryItem } from '../hooks/useTimesheetEntries';
 import { Project, Stage } from '../hooks/useTimesheetData';
 
@@ -13,7 +12,7 @@ interface TimeEntryRowProps {
   entry: TimesheetEntryItem;
   projects: Project[];
   stages: Stage[];
-  timeOptions: { label: string; value: string }[];
+  hoursOptions: { label: string; value: number }[];
   onUpdate: (entryId: string, field: keyof TimesheetEntryItem, value: any) => void;
   onRemove: (entryId: string) => void;
 }
@@ -22,30 +21,14 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({
   entry,
   projects,
   stages,
-  timeOptions,
+  hoursOptions,
   onUpdate,
   onRemove,
 }) => {
-  // 处理时间选择变化
-  const handleTimeChange = useCallback((field: 'startTime' | 'endTime', timeString: string | null) => {
-    if (timeString) {
-      const [hours, minutes] = timeString.split(':').map(Number);
-      const newTime = dayjs().hour(hours).minute(minutes).second(0);
-      onUpdate(entry.id, field, newTime);
-    }
+  // 处理工时选择变化
+  const handleHoursChange = useCallback((hours: number) => {
+    onUpdate(entry.id, 'hours', hours);
   }, [entry.id, onUpdate]);
-
-  // 计算工时显示
-  const calculateDisplayHours = useCallback((startTime: Dayjs, endTime: Dayjs): number => {
-    if (!startTime || !endTime) return 0;
-    const diffMinutes = endTime.diff(startTime, 'minute');
-    if (diffMinutes <= 0) return 0;
-    return Math.round((diffMinutes / 60) * 100) / 100;
-  }, []);
-
-  const displayHours = calculateDisplayHours(entry.startTime, entry.endTime);
-  
-  // 时区问题已在useTimesheetEntries中修复
 
   return (
     <Card key={entry.id} size="small" className="border-l-4 border-l-blue-500">
@@ -99,51 +82,22 @@ const TimeEntryRow: React.FC<TimeEntryRowProps> = ({
           </div>
         </Col>
         
-        <Col xs={12} sm={6} md={3}>
-          <div>
-            <Text strong>Start:</Text>
-            <Select
-              value={entry.startTime ? entry.startTime.format('HH:mm') : undefined}
-              onChange={(value) => handleTimeChange('startTime', value)}
-              placeholder="Start time"
-              className="w-full mt-1"
-              showSearch
-            >
-              {timeOptions.map(option => (
-                <Option key={`start-${option.value}`} value={option.value}>
-                  {option.label}
-                </Option>
-              ))}
-            </Select>
-          </div>
-        </Col>
-        
-        <Col xs={12} sm={6} md={3}>
-          <div>
-            <Text strong>End:</Text>
-            <Select
-              value={entry.endTime ? entry.endTime.format('HH:mm') : undefined}
-              onChange={(value) => handleTimeChange('endTime', value)}
-              placeholder="End time"
-              className="w-full mt-1"
-              showSearch
-            >
-              {timeOptions.map(option => (
-                <Option key={`end-${option.value}`} value={option.value}>
-                  {option.label}
-                </Option>
-              ))}
-            </Select>
-          </div>
-        </Col>
-        
-        <Col xs={12} sm={6} md={3}>
+        <Col xs={12} sm={6} md={6}>
           <div>
             <Text strong>Hours:</Text>
-            <div className="mt-1 p-2 bg-gray-50 rounded text-center font-semibold text-green-600">
-              {/* 优先显示保存的hours值，如果没有则显示计算值 */}
-              {(entry.hours !== undefined && entry.hours !== null ? entry.hours : displayHours).toFixed(2)}h
-            </div>
+            <Select
+              value={entry.hours}
+              onChange={handleHoursChange}
+              placeholder="Select hours"
+              className="w-full mt-1"
+              showSearch
+            >
+              {hoursOptions.map(option => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
           </div>
         </Col>
         

@@ -33,7 +33,7 @@ const TimesheetEntry: React.FC = () => {
     setSelectedDate,
     entries,
     totalHours,
-    timeOptions,
+    hoursOptions,
     addEntry,
     removeEntry,
     updateEntry,
@@ -104,7 +104,7 @@ const TimesheetEntry: React.FC = () => {
             entries={entries}
             projects={projects}
             stages={stages}
-            timeOptions={timeOptions}
+            hoursOptions={hoursOptions}
             onAddEntry={addEntry}
             onUpdateEntry={updateEntry}
             onRemoveEntry={removeEntry}
@@ -115,7 +115,7 @@ const TimesheetEntry: React.FC = () => {
             totalHours={totalHours}
             hasValidEntries={entries.length > 0 && entries.some(entry => entry.projectId && entry.stageId)}
             canSubmit={entries.length > 0 && entries.every(entry => 
-              entry.projectId && entry.stageId && entry.startTime && entry.endTime
+              entry.projectId && entry.stageId && entry.hours > 0
             )}
             isSaving={isSaving}
             isSubmitting={submitting}

@@ -11,7 +11,7 @@ interface TimeEntriesListProps {
   entries: TimesheetEntryItem[];
   projects: Project[];
   stages: Stage[];
-  timeOptions: { label: string; value: string }[];
+  hoursOptions: { label: string; value: number }[];
   onAddEntry: () => void;
   onUpdateEntry: (entryId: string, field: keyof TimesheetEntryItem, value: any) => void;
   onRemoveEntry: (entryId: string) => void;
@@ -21,7 +21,7 @@ const TimeEntriesList: React.FC<TimeEntriesListProps> = ({
   entries,
   projects,
   stages,
-  timeOptions,
+  hoursOptions,
   onAddEntry,
   onUpdateEntry,
   onRemoveEntry,
@@ -62,7 +62,7 @@ const TimeEntriesList: React.FC<TimeEntriesListProps> = ({
               entry={entry}
               projects={projects}
               stages={stages}
-              timeOptions={timeOptions}
+              hoursOptions={hoursOptions}
               onUpdate={onUpdateEntry}
               onRemove={onRemoveEntry}
             />

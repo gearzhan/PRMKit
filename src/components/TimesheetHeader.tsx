@@ -78,6 +78,7 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
           <ul className="mt-2 ml-4 text-sm text-green-700">
             <li>• Fixed search functionality in Project dropdown - you can now search by project code or name</li>
             <li>• Fixed search functionality in Stage dropdown - you can now search by stage name</li>
+            <li>• Simplified timesheet entry system - now directly input hours instead of start/end times for easier workflow</li>
           </ul>
         </div>
       </Card>

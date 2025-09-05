@@ -75,9 +75,9 @@ model Timesheet {
   projectId   String          // 项目ID
   stageId     String?         // 阶段ID（可选）
   date        DateTime        // 工作日期
-  startTime   DateTime        // 开始时间
-  endTime     DateTime        // 结束时间
-  // 自动计算工时（小时），最小单位15分钟
+  startTime   DateTime?       // 开始时间（可选，向后兼容）
+  endTime     DateTime?       // 结束时间（可选，向后兼容）
+  // 工时（小时），最小单位15分钟，作为主要工时字段
   hours       Float         // 工时（小时）
   description String?         // 工作描述
   status      TimesheetStatus @default(DRAFT) // 状态
@@ -90,7 +90,7 @@ model Timesheet {
   stage    Stage?   @relation(fields: [stageId], references: [id], onDelete: SetNull)
   approval Approval? // 审批记录
 
-  @@unique([employeeId, projectId, date, startTime]) // 防止重复记录
+  @@unique([employeeId, projectId, date, hours]) // 修改唯一约束，基于hours而非startTime
   @@map("timesheets")
 }
 

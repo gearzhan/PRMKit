@@ -18,14 +18,8 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
     } = req.body;
     
     // 验证必填字段
-    if (!projectId || !date || !startTime || !endTime) {
-      return res.status(400).json({ error: 'Project ID, date, start time, and end time are required' });
-    }
-    
-    // 验证工时
-    const validation = validateTimesheet(startTime, endTime);
-    if (!validation.isValid) {
-      return res.status(400).json({ error: validation.error });
+    if (!projectId || !date || req.body.hours === undefined || req.body.hours <= 0) {
+      return res.status(400).json({ error: 'Project ID, date, and hours are required' });
     }
     
     // 使用前端传递的工时值，不重新计算
@@ -58,20 +52,15 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
     
     // 移除了7.6小时的每日工时限制检查
     
-    // 从ISO字符串创建Date对象
-    const startDateTime = new Date(startTime);
-    const endDateTime = new Date(endTime);
-    const workDate = new Date(date); // 确保workDate仍然是基于当天的日期
-
-
+    const workDate = new Date(date);
     
     // 创建工时记录
     const timesheetData: any = {
       employeeId: req.user!.userId,
       projectId,
       date: workDate,
-      startTime: startDateTime,
-      endTime: endDateTime,
+      startTime: null, // 新版本不使用开始时间
+      endTime: null,   // 新版本不使用结束时间
       hours: Number(req.body.hours),
       description,
       status: 'DRAFT',
@@ -83,19 +72,19 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
     }
     
     // 使用 upsert 来处理唯一约束冲突
-    // 如果存在相同的 employeeId, projectId, date, startTime 组合，则更新现有记录
+    // 如果存在相同的 employeeId, projectId, date, hours 组合，则更新现有记录
     const timesheet = await prisma.timesheet.upsert({
       where: {
-        employeeId_projectId_date_startTime: {
+        employeeId_projectId_date_hours: {
           employeeId: req.user!.userId,
           projectId,
           date: workDate,
-          startTime: startDateTime,
+          hours: Number(req.body.hours),
         },
       },
       update: {
-        endTime: endDateTime,
-        hours: Number(req.body.hours),
+        startTime: null,
+        endTime: null,
         description,
         stageId: stageId || null,
         updatedAt: new Date(),
@@ -334,22 +323,19 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
     
 
     
-    // 验证工时（如果提供了时间）
+    // 验证工时
     let finalHours = req.body.hours !== undefined ? Number(req.body.hours) : Number(existingTimesheet.hours);
-    if (startTime && endTime) {
-      const validation = validateTimesheet(startTime, endTime);
-      if (!validation.isValid) {
-        return res.status(400).json({ error: validation.error });
-      }
-      // 使用前端传递的工时值，不重新计算
-      // hours = calculateHours(startTime, endTime); // 注释掉重新计算
+    if (finalHours <= 0) {
+      return res.status(400).json({ error: 'Hours must be greater than 0' });
     }
     
-    // 处理时间字段
+    // 处理更新数据
     let updateData: any = {
       projectId: projectId || existingTimesheet.projectId,
       hours: finalHours,
       description: description !== undefined ? description : existingTimesheet.description,
+      startTime: null, // 新版本不使用开始时间
+      endTime: null,   // 新版本不使用结束时间
     };
     
     // 只有当stageId存在且不为空时才添加到更新数据中
@@ -358,17 +344,9 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
       updateData.stageId = finalStageId;
     }
     
-    // 处理日期和时间
+    // 处理日期
     if (date) {
       updateData.date = new Date(date);
-    }
-    
-    if (startTime) {
-      updateData.startTime = new Date(startTime);
-    }
-    
-    if (endTime) {
-      updateData.endTime = new Date(endTime);
     }
     
     // 更新工时记录

@@ -83,44 +83,13 @@ export const useTimesheetSubmission = ({
       
       // 优化：使用批量创建而不是循环调用（草稿允许部分字段为空）
       const timesheetDataList = validDraftEntries.map(entry => {
-        // 使用更稳定的时间格式化方法，确保在所有环境中都能正确解析
-        let startTimeISO = null;
-        let endTimeISO = null;
-        
-        if (entry.startTime) {
-          const startHour = entry.startTime.hour();
-          const startMinute = entry.startTime.minute();
-          // 构建标准的 ISO 8601 格式字符串
-          const dateStr = selectedDate.format('YYYY-MM-DD');
-          startTimeISO = `${dateStr}T${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}:00.000Z`;
-        }
-        
-        if (entry.endTime) {
-          const endHour = entry.endTime.hour();
-          const endMinute = entry.endTime.minute();
-          // 构建标准的 ISO 8601 格式字符串
-          const dateStr = selectedDate.format('YYYY-MM-DD');
-          endTimeISO = `${dateStr}T${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}:00.000Z`;
-        }
-
-        // 计算工时（与后端保持一致：四舍五入到最近的15分钟）
-        let hours = 0;
-        if (entry.startTime && entry.endTime) {
-          const diffMs = entry.endTime.valueOf() - entry.startTime.valueOf();
-          const diffHours = diffMs / (1000 * 60 * 60);
-          // 四舍五入到最近的15分钟（0.25小时）
-          hours = Math.round(diffHours * 4) / 4;
-          
-          // 计算工时完成
-        }
-
         return {
           projectId: entry.projectId,
           stageId: entry.stageId || undefined,
           date: selectedDate.format('YYYY-MM-DD'),
-          startTime: startTimeISO,
-          endTime: endTimeISO,
-          hours: hours,
+          startTime: null, // 新版本不使用开始时间
+          endTime: null,   // 新版本不使用结束时间
+          hours: entry.hours || 0,
           description: entry.description || '',
         };
       });
@@ -211,43 +180,25 @@ export const useTimesheetSubmission = ({
       
       // 提交审批验证：要求所有字段完整
       const validEntries = entries.filter(entry => 
-        entry.projectId && entry.stageId && entry.startTime && entry.endTime
+        entry.projectId && entry.stageId && entry.hours > 0
       );
       
       // 验证有效条目
       
       if (validEntries.length === 0) {
-        message.warning('Please fill in at least one complete entry (project, stage, start time, and end time) to submit for approval');
+        message.warning('Please fill in at least one complete entry (project, stage, and hours) to submit for approval');
         return;
       }
       
       // 使用overwriteDay方法，避免重复创建记录
       const timesheetDataList = validEntries.map(entry => {
-        // 使用更稳定的时间格式化方法，确保在所有环境中都能正确解析
-        const startHour = entry.startTime!.hour();
-        const startMinute = entry.startTime!.minute();
-        const endHour = entry.endTime!.hour();
-        const endMinute = entry.endTime!.minute();
-        
-        // 构建标准的 ISO 8601 格式字符串
-        const dateStr = selectedDate.format('YYYY-MM-DD');
-        const startTimeISO = `${dateStr}T${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')}:00.000Z`;
-        const endTimeISO = `${dateStr}T${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}:00.000Z`;
-
-        // 计算工时（与后端保持一致：四舍五入到最近的15分钟）
-        const diffMs = entry.endTime!.valueOf() - entry.startTime!.valueOf();
-        const diffHours = diffMs / (1000 * 60 * 60);
-        const hours = Math.round(diffHours * 4) / 4;
-        
-        // 计算工时完成
-
         return {
           projectId: entry.projectId,
           stageId: entry.stageId || undefined,
           date: selectedDate.format('YYYY-MM-DD'),
-          startTime: startTimeISO,
-          endTime: endTimeISO,
-          hours: hours,
+          startTime: null, // 新版本不使用开始时间
+          endTime: null,   // 新版本不使用结束时间
+          hours: entry.hours,
           description: entry.description || '',
         };
       });
