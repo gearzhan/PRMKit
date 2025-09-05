@@ -22,7 +22,7 @@ git clean -fd
 ```
 
 该脚本会：
-1. 备份数据库文件（`prisma/data.db`, `prisma/dev.db`）
+1. 备份数据库文件（`prisma/data.db`）
 2. 备份迁移文件（`prisma/migrations`）
 3. 拉取最新代码
 4. 恢复数据库文件
@@ -77,7 +77,7 @@ git clean -fd
 项目的 `.gitignore` 文件已经配置为忽略以下数据库相关文件：
 
 ```
-prisma/dev.db
+prisma/data.db
 prisma/data.db
 prisma/migrations
 ```

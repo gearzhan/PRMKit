@@ -1,6 +1,3 @@
-// Prisma schema file for PRMKit
-// 项目资源管理工具包数据库模型定义
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,190 +7,110 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 员工表 - Employee model
-model Employee {
-  id          String   @id @default(cuid())
-  employeeId  String   @unique // 员工工号
-  name        String   // 姓名
-  email       String   @unique // 邮箱
-  password    String   // 密码哈希
-  role        Role     @default(LEVEL3) // 角色
-  position    String?  // 职位
-  isActive    Boolean  @default(true) // 是否激活
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // 关联关系
-  timesheets     Timesheet[] // 工时记录
-  approvals      Approval[]  @relation("ApproverApprovals") // 作为审批人的审批记录
-  submittedApprovals Approval[] @relation("SubmitterApprovals") // 作为提交人的审批记录
-  csvImportLogs  CsvImportLog[] // CSV导入日志记录
-
-  @@map("employees")
+model approval {
+  id                                         String     @id
+  timesheetId                                String     @unique
+  submitterId                                String
+  approverId                                 String?
+  status                                     String     @default("PENDING")
+  submittedAt                                DateTime   @default(now())
+  approvedAt                                 DateTime?
+  comments                                   String?
+  createdAt                                  DateTime   @default(now())
+  updatedAt                                  DateTime
+  employees_approvals_approverIdToemployees  employees? @relation("approvals_approverIdToemployees", fields: [approverId], references: [id])
+  employees_approvals_submitterIdToemployees employees  @relation("approvals_submitterIdToemployees", fields: [submitterId], references: [id], onDelete: Cascade)
+  timesheets                                 timesheets @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
 }
 
-// 角色枚举 - Role enumeration with authority levels
-enum Role {
-  LEVEL1 // 一级权限 - 全部访问权限 (管理员)
-  LEVEL2 // 二级权限 - 管理权限 (经理)
-  LEVEL3 // 三级权限 - 基础权限 (员工)
+model csv_import_errors {
+  id              String          @id
+  logId           String
+  rowNumber       Int
+  field           String?
+  value           String?
+  message         String
+  createdAt       DateTime        @default(now())
+  csv_import_logs csv_import_logs @relation(fields: [logId], references: [id], onDelete: Cascade)
 }
 
-// 项目表 - Project model
-model Project {
-  id          String   @id @default(cuid())
-  projectCode String   @unique // 项目编码
-  name        String   // 项目名称
-  description String?  // 项目描述
-  nickname    String?  // 项目昵称
-  startDate   DateTime // 开始日期
-  endDate     DateTime? // 结束日期
-  status      ProjectStatus @default(ACTIVE) // 项目状态
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // 关联关系
-  timesheets     Timesheet[] // 工时记录
-
-  @@map("projects")
+model csv_import_logs {
+  id                String              @id
+  fileName          String
+  dataType          String
+  operatorId        String
+  totalRows         Int
+  successRows       Int
+  errorRows         Int
+  status            String              @default("PROCESSING")
+  startTime         DateTime            @default(now())
+  endTime           DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  csv_import_errors csv_import_errors[]
+  employees         employees           @relation(fields: [operatorId], references: [id], onDelete: Cascade)
 }
 
-// 项目状态枚举
-enum ProjectStatus {
-  ACTIVE    // 进行中
-  COMPLETED // 已完成
-  SUSPENDED // 暂停
-  CANCELLED // 已取消
+model employee {
+  id                                         String            @id
+  employeeId                                 String            @unique
+  name                                       String
+  email                                      String            @unique
+  password                                   String
+  role                                       String            @default("LEVEL3")
+  position                                   String?
+  isActive                                   Boolean           @default(true)
+  createdAt                                  DateTime          @default(now())
+  updatedAt                                  DateTime
+  approvals_approvals_approverIdToemployees  approvals[]       @relation("approvals_approverIdToemployees")
+  approvals_approvals_submitterIdToemployees approvals[]       @relation("approvals_submitterIdToemployees")
+  csv_import_logs                            csv_import_logs[]
+  timesheets                                 timesheets[]
 }
 
-
-// 工时表 - Timesheet model
-model Timesheet {
-  id          String          @id @default(cuid())
-  employeeId  String          // 员工ID
-  projectId   String          // 项目ID
-  stageId     String?         // 阶段ID（可选）
-  date        DateTime        // 工作日期
-  startTime   DateTime?       // 开始时间（可选，向后兼容）
-  endTime     DateTime?       // 结束时间（可选，向后兼容）
-  // 工时（小时），最小单位15分钟，作为主要工时字段
-  hours       Float         // 工时（小时）
-  description String?         // 工作描述
-  status      TimesheetStatus @default(DRAFT) // 状态
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  // 关联关系
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  stage    Stage?   @relation(fields: [stageId], references: [id], onDelete: SetNull)
-  approval Approval? // 审批记录
-
-  @@unique([employeeId, projectId, date, hours]) // 修改唯一约束，基于hours而非startTime
-  @@map("timesheets")
+model project {
+  id          String       @id
+  projectCode String       @unique
+  name        String
+  description String?
+  nickname    String?
+  startDate   DateTime
+  endDate     DateTime?
+  status      String       @default("ACTIVE")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime
+  timesheets  timesheets[]
 }
 
-// 工时状态枚举
-enum TimesheetStatus {
-  DRAFT     // 草稿
-  SUBMITTED // 已提交
-  APPROVED  // 已审批
+model stage {
+  id          String       @id
+  taskId      String       @unique
+  name        String
+  description String?
+  category    String
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime
+  timesheets  timesheets[]
 }
 
-// 审批表 - Approval model
-model Approval {
-  id           String        @id @default(cuid())
-  timesheetId  String        @unique // 工时记录ID
-  submitterId  String        // 提交人ID
-  approverId   String?       // 审批人ID
-  status       ApprovalStatus @default(PENDING) // 审批状态
-  submittedAt  DateTime      @default(now()) // 提交时间
-  approvedAt   DateTime?     // 审批时间
-  comments     String?       // 审批意见
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+model timesheet {
+  id          String     @id
+  employeeId  String
+  projectId   String
+  stageId     String?
+  date        DateTime
+  startTime   DateTime?
+  endTime     DateTime?
+  hours       Float
+  description String?
+  status      String     @default("DRAFT")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime
+  approvals   approvals?
+  stages      stages?    @relation(fields: [stageId], references: [id])
+  projects    projects   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employees   employees  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  // 关联关系
-  timesheet Timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
-  submitter Employee  @relation("SubmitterApprovals", fields: [submitterId], references: [id], onDelete: Cascade)
-  approver  Employee? @relation("ApproverApprovals", fields: [approverId], references: [id], onDelete: SetNull)
-
-  @@map("approvals")
-}
-
-// 审批状态枚举
-enum ApprovalStatus {
-  PENDING  // 待审批
-  APPROVED // 已审批
-}
-
-// 阶段表 - Stage model (用于管理通用任务类型)
-model Stage {
-  id          String   @id @default(cuid())
-  taskId      String   @unique // 任务ID (如 TD.00.00)
-  name        String   // 任务名称
-  description String?  // 任务描述
-  category    String   // 任务类别 (如 Administration, Design, etc.)
-  isActive    Boolean  @default(true) // 是否激活
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // 关联关系
-  timesheets  Timesheet[] // 工时记录
-
-  @@map("stages")
-}
-
-// CSV导入日志表 - CSV Import Log model
-model CsvImportLog {
-  id          String   @id @default(cuid())
-  fileName    String   // 导入文件名
-  dataType    CsvDataType // 数据类型（员工、项目、工时）
-  operatorId  String   // 操作员ID
-  totalRows   Int      // 总行数
-  successRows Int      // 成功行数
-  errorRows   Int      // 错误行数
-  status      CsvImportStatus @default(PROCESSING) // 导入状态
-  startTime   DateTime @default(now()) // 开始时间
-  endTime     DateTime? // 结束时间
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // 关联关系
-  operator Employee @relation(fields: [operatorId], references: [id], onDelete: Cascade)
-  errors   CsvImportError[] // 错误记录
-
-  @@map("csv_import_logs")
-}
-
-// CSV导入错误表 - CSV Import Error model
-model CsvImportError {
-  id        String @id @default(cuid())
-  logId     String // 导入日志ID
-  rowNumber Int    // 错误行号
-  field     String? // 错误字段
-  value     String? // 错误值
-  message   String // 错误信息
-  createdAt DateTime @default(now())
-
-  // 关联关系
-  log CsvImportLog @relation(fields: [logId], references: [id], onDelete: Cascade)
-
-  @@map("csv_import_errors")
-}
-
-// CSV数据类型枚举
-enum CsvDataType {
-  EMPLOYEE  // 员工数据
-  PROJECT   // 项目数据
-  TIMESHEET // 工时数据
-}
-
-// CSV导入状态枚举
-enum CsvImportStatus {
-  PROCESSING // 处理中
-  SUCCESS    // 成功
-  FAILED     // 失败
-  PARTIAL    // 部分成功
+  @@unique([employeeId, projectId, date, hours])
 }

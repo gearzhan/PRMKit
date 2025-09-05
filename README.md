@@ -192,12 +192,12 @@ npm run db:generate
      - 确认数据库为本地 SQLite，.env 中的 DATABASE_URL 指向文件：
        ```env
        # 示例（请根据实际情况确认）
-       DATABASE_URL="file:./prisma/dev.db"
+       DATABASE_URL="file:./prisma/data.db"
        ```
      - 建议先备份数据库再做修改：
        ```bash
        mkdir -p prisma/backup
-       cp prisma/dev.db prisma/backup/dev-$(date +%Y%m%d%H%M).db
+       cp prisma/data.db prisma/backup/data-$(date +%Y%m%d%H%M).db
        ```
    - 启动与访问
      - 在项目根目录运行：
@@ -216,7 +216,7 @@ npm run db:generate
      - 删除：勾选记录后点击“Delete”删除。
      - 关系：含外键字段的表可直接跳转查看关联记录。
    - 安全与注意事项
-     - 请勿将本地数据库文件提交到 Git（当前已忽略 prisma/dev.db）。
+     - 请勿将本地数据库文件提交到 Git（当前已忽略 prisma/data.db）。
      - 不建议直接修改生产环境数据，若需批量/可追溯的修改请改用脚本或迁移。
      - 修改关键业务字段前请先备份，避免误操作导致数据不一致。
    - 故障排查
@@ -225,7 +225,7 @@ npm run db:generate
        npm i -D prisma
        ```
      - 打不开页面：检查终端输出的访问地址与端口，或更换端口重试。
-     - 数据库无法读取：确认 .env 的 DATABASE_URL 正确，且 dev.db 文件存在且无权限问题。
+     - 数据库无法读取：确认 .env 的 DATABASE_URL 正确，且 data.db 文件存在且无权限问题。
 
 ### 错误代码对照
 
