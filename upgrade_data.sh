@@ -130,8 +130,7 @@ done
 # 拉取最新代码
 log "拉取最新代码..."
 if [ "$DRY_RUN" = false ]; then
-    git fetch --all || error_exit "git fetch 失败"
-    git reset --hard origin/main || error_exit "git reset 失败"
+    git pull origin main || error_exit "git pull 失败"
 fi
 
 # 安装依赖
