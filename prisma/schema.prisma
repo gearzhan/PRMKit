@@ -18,9 +18,9 @@ model approval {
   comments                                   String?
   createdAt                                  DateTime   @default(now())
   updatedAt                                  DateTime
-  employees_approvals_approverIdToemployees  employees? @relation("approvals_approverIdToemployees", fields: [approverId], references: [id])
-  employees_approvals_submitterIdToemployees employees  @relation("approvals_submitterIdToemployees", fields: [submitterId], references: [id], onDelete: Cascade)
-  timesheets                                 timesheets @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
+  employee_approvals_approverIdToemployee  employee? @relation("approvals_approverIdToemployee", fields: [approverId], references: [id])
+  employee_approvals_submitterIdToemployee employee  @relation("approvals_submitterIdToemployee", fields: [submitterId], references: [id], onDelete: Cascade)
+  timesheet                                timesheet @relation(fields: [timesheetId], references: [id], onDelete: Cascade)
 }
 
 model csv_import_errors {
@@ -48,7 +48,7 @@ model csv_import_logs {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime
   csv_import_errors csv_import_errors[]
-  employees         employees           @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  employees         employee           @relation(fields: [operatorId], references: [id], onDelete: Cascade)
 }
 
 model employee {
@@ -62,10 +62,10 @@ model employee {
   isActive                                   Boolean           @default(true)
   createdAt                                  DateTime          @default(now())
   updatedAt                                  DateTime
-  approvals_approvals_approverIdToemployees  approvals[]       @relation("approvals_approverIdToemployees")
-  approvals_approvals_submitterIdToemployees approvals[]       @relation("approvals_submitterIdToemployees")
+  approval_approvals_approverIdToemployee  approval[]       @relation("approvals_approverIdToemployee")
+  approval_approvals_submitterIdToemployee approval[]       @relation("approvals_submitterIdToemployee")
   csv_import_logs                            csv_import_logs[]
-  timesheets                                 timesheets[]
+  timesheet                                  timesheet[]
 }
 
 model project {
@@ -79,7 +79,7 @@ model project {
   status      String       @default("ACTIVE")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime
-  timesheets  timesheets[]
+  timesheet   timesheet[]
 }
 
 model stage {
@@ -91,7 +91,7 @@ model stage {
   isActive    Boolean      @default(true)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime
-  timesheets  timesheets[]
+  timesheet   timesheet[]
 }
 
 model timesheet {
@@ -107,10 +107,10 @@ model timesheet {
   status      String     @default("DRAFT")
   createdAt   DateTime   @default(now())
   updatedAt   DateTime
-  approvals   approvals?
-  stages      stages?    @relation(fields: [stageId], references: [id])
-  projects    projects   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  employees   employees  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  approval    approval?
+  stage       stage?     @relation(fields: [stageId], references: [id])
+  project     project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee    employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, projectId, date, hours])
 }
