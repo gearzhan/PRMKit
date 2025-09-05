@@ -8,7 +8,7 @@
 set -e  # 遇到错误立即退出
 
 # 配置变量
-SERVICE_NAME="prmkit"  # 根据实际服务名称调整
+SERVICE_NAME="PRMKit"  # 根据实际服务名称调整
 LOG_FILE="logs/rollback_$(date +"%Y%m%d_%H%M%S").log"
 DRY_RUN=false
 
