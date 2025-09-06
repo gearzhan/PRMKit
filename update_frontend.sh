@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# PRMKit 生产环境前端更新脚本
-# 用途: 生产环境远程服务器前端代码更新，确保数据安全
+# PRMKit 生产环境项目更新脚本
+# 用途: 生产环境远程服务器项目代码更新，构建完整前后端，确保数据安全
 # 使用方法: ./update_frontend.sh [--dry-run] [--skip-backup]
 
 set -e  # 遇到错误立即退出
@@ -45,7 +45,7 @@ log() {
 # 错误处理函数
 error_exit() {
     log "错误: $1"
-    log "前端更新失败，请检查日志: $LOG_FILE"
+    log "项目更新失败，请检查日志: $LOG_FILE"
     if [ "$DRY_RUN" = false ]; then
         log "如需回滚，请运行: ./rollback.sh $(basename $BACKUP_DIR)"
     fi
@@ -78,7 +78,7 @@ quick_rollback() {
 # 信号处理
 trap 'log "收到中断信号，正在安全退出..."; quick_rollback; exit 1' INT TERM
 
-log "🚀 开始 $PROJECT_NAME 生产环境前端更新..."
+log "🚀 开始 $PROJECT_NAME 生产环境项目更新..."
 if [ "$DRY_RUN" = true ]; then
     log "*** DRY RUN 模式 - 不会执行实际操作 ***"
 fi
@@ -151,14 +151,14 @@ if [ "$DRY_RUN" = false ]; then
     fi
 fi
 
-# 快速构建前端
-log "🔨 构建前端项目..."
+# 完整构建项目（前端+后端）
+log "🔨 构建完整项目..."
 if [ "$DRY_RUN" = false ]; then
     # 清理旧的构建文件
     npm run clean 2>/dev/null || rm -rf dist 2>/dev/null || true
     
-    # 构建项目
-    npm run build:client || npm run build || error_exit "前端项目构建失败"
+    # 构建完整项目（包含前端和后端）
+    npm run build || error_exit "项目构建失败"
 fi
 
 # 验证构建结果
@@ -186,7 +186,7 @@ if [ "$DRY_RUN" = false ]; then
     fi
 fi
 
-log "🎉 生产环境前端更新完成！"
+log "🎉 生产环境项目更新完成！"
 if [ "$SKIP_BACKUP" = false ]; then
     log "📁 备份位置: $BACKUP_DIR"
 fi
@@ -204,7 +204,7 @@ fi
 if [ "$DRY_RUN" = false ]; then
     echo
     echo "🏭 生产环境更新完成提示:"
-    echo "   - 前端代码已更新并构建完成"
+    echo "   - 项目代码已更新并构建完成（包含前后端）"
     echo "   - 请根据需要手动重启PM2服务: pm2 restart <app_name>"
     echo "   - 检查服务状态: pm2 status"
     echo "   - 查看日志: pm2 logs"
