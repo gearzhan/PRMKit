@@ -1,9 +1,14 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tsconfigPaths from "vite-tsconfig-paths";
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // 加载环境变量
+  const env = loadEnv(mode, process.cwd(), '')
+  const apiPort = env.PORT || '3333'
+  
+  return {
   base: '/',
   plugins: [
     react({
@@ -54,7 +59,7 @@ export default defineConfig({
     ],
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: `http://localhost:${apiPort}`,
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
@@ -70,5 +75,6 @@ export default defineConfig({
         },
       }
     }
+  }
   }
 })
