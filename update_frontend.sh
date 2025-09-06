@@ -130,9 +130,9 @@ else
 fi
 
 # 拉取最新代码
-log "📥 拉取最新代码..."
+log "📥 拉取并重置到最新代码..."
 if [ "$DRY_RUN" = false ]; then
-    git pull origin main || error_exit "git pull 失败"
+    git fetch --all && git reset --hard origin/main || error_exit "Git 更新失败"
 fi
 
 # 智能依赖安装（检查package.json是否有变化）
