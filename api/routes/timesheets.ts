@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import prisma, { calculateHours, validateTimesheet } from '../lib/prisma.js';
+import prisma, { validateTimesheet } from '../lib/prisma.js';
 import { authenticateToken, AuthenticatedRequest, requireLevel1Admin, isLevel3Worker } from '../lib/jwt.js';
 import { TimesheetStatus } from '@prisma/client';
 
@@ -12,8 +12,6 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
       projectId,
       stageId,
       date,
-      startTime,
-      endTime,
       description,
     } = req.body;
     
@@ -22,8 +20,6 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
       return res.status(400).json({ error: 'Project ID, date, and hours are required' });
     }
     
-    // 使用前端传递的工时值，不重新计算
-    // const hours = calculateHours(startTime, endTime); // 注释掉重新计算
     // 直接使用前端传递的hours值
     
     // 检查项目是否存在（项目对全公司共享，不区分权限）
@@ -59,8 +55,6 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
       employeeId: req.user!.userId,
       projectId,
       date: workDate,
-      startTime: null, // 新版本不使用开始时间
-      endTime: null,   // 新版本不使用结束时间
       hours: Number(req.body.hours),
       description,
       status: 'DRAFT',
@@ -72,19 +66,18 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
     }
     
     // 使用 upsert 来处理唯一约束冲突
-    // 如果存在相同的 employeeId, projectId, date, hours 组合，则更新现有记录
+    // 如果存在相同的 employeeId, projectId, stageId, date 组合，则更新现有记录
     const timesheet = await prisma.timesheet.upsert({
       where: {
-        employeeId_projectId_date_hours: {
+        employeeId_projectId_stageId_date: {
           employeeId: req.user!.userId,
           projectId,
+          stageId: stageId || null,
           date: workDate,
-          hours: Number(req.body.hours),
         },
       },
       update: {
-        startTime: null,
-        endTime: null,
+        hours: Number(req.body.hours),
         description,
         stageId: stageId || null,
         updatedAt: new Date(),
@@ -299,8 +292,6 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
       projectId,
       stageId,
       date,
-      startTime,
-      endTime,
       description,
     } = req.body;
     
@@ -334,8 +325,6 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
       projectId: projectId || existingTimesheet.projectId,
       hours: finalHours,
       description: description !== undefined ? description : existingTimesheet.description,
-      startTime: null, // 新版本不使用开始时间
-      endTime: null,   // 新版本不使用结束时间
     };
     
     // 只有当stageId存在且不为空时才添加到更新数据中

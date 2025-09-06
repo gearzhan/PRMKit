@@ -28,7 +28,6 @@ dist-ssr
 .env.local
 .env.*.local
 prisma/data.db
-prisma/data.db
 prisma/migrations
 dist/*
 

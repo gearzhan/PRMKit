@@ -400,8 +400,6 @@ router.get('/export/timesheets', authenticateToken, async (req: AuthenticatedReq
       'Project Name': timesheet.project.name,
       'Stage': timesheet.stage?.name || 'N/A',
       'Date': timesheet.date.toISOString().split('T')[0],
-      'Start Time': timesheet.startTime,
-      'End Time': timesheet.endTime,
       'Hours': Number(timesheet.hours),
       'Description': timesheet.description || '',
       'Status': timesheet.status,

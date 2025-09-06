@@ -38,7 +38,7 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 // 数据类型枚举
-type DataType = 'EMPLOYEE' | 'PROJECT' | 'TIMESHEET';
+type DataType = 'EMPLOYEE' | 'PROJECT' | 'TIMESHEET' | 'STAGE';
 
 // CSV导入日志接口
 interface CsvImportLog {
@@ -112,6 +112,7 @@ const DataManagement: React.FC = () => {
     { value: 'EMPLOYEE', label: 'Employees', icon: '👥' },
     { value: 'PROJECT', label: 'Projects', icon: '📋' },
     { value: 'TIMESHEET', label: 'Timesheets', icon: '⏰' },
+    { value: 'STAGE', label: 'Stages', icon: '🎯' },
   ];
 
   // 获取导入日志
@@ -138,7 +139,8 @@ const DataManagement: React.FC = () => {
     const pathMap: Record<DataType, string> = {
       'EMPLOYEE': 'employees',
       'PROJECT': 'projects',
-      'TIMESHEET': 'timesheets'
+      'TIMESHEET': 'timesheets',
+      'STAGE': 'stages'
     };
     return pathMap[dataType];
   };

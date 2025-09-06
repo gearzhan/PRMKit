@@ -18,37 +18,16 @@ if (process.env.NODE_ENV === 'development') {
 
 export default prisma;
 
-// 工时计算工具函数
-export const calculateHours = (startTime: string, endTime: string): number => {
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  
-  // 计算时间差（毫秒）
-  const diffMs = end.getTime() - start.getTime();
-  
-  // 转换为小时
-  const hours = diffMs / (1000 * 60 * 60);
-  
-  // 四舍五入到最近的15分钟（0.25小时）
-  return Math.round(hours * 4) / 4;
-};
-
 // 验证工时是否符合规则
-export const validateTimesheet = (startTime: string, endTime: string): { isValid: boolean; error?: string } => {
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  
-  // 检查结束时间是否晚于开始时间
-  if (end <= start) {
-    return { isValid: false, error: 'End time must be after start time' };
+export const validateTimesheet = (hours: number): { isValid: boolean; error?: string } => {
+  // 检查工时是否为正数
+  if (hours <= 0) {
+    return { isValid: false, error: 'Hours must be greater than 0' };
   }
   
-  // 计算工时
-  const hours = calculateHours(startTime, endTime);
-  
-  // 检查最小时间单位（15分钟）
+  // 检查最小时间单位（0.25小时）
   if (hours < 0.25) {
-    return { isValid: false, error: 'Minimum time unit is 15 minutes (0.25 hours)' };
+    return { isValid: false, error: 'Minimum time unit is 0.25 hours' };
   }
   
   return { isValid: true };

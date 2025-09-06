@@ -68,8 +68,6 @@ interface Approval {
   timesheet: {
     id: string;
     date: string;
-    startTime: string;
-    endTime: string;
     hours: number; // 后端返回的是hours字段
     description?: string;
     employee: { // 后端返回的是employee字段，不是submitter
@@ -706,7 +704,7 @@ const AdminApprovals: React.FC = () => {
                                         {approval.timesheet.project.name}
                                       </span>
                                       <span className="text-gray-600">
-                                        {approval.timesheet.startTime.substring(11, 16)} - {approval.timesheet.endTime.substring(11, 16)}
+                                        {dayjs(approval.timesheet.date).format('YYYY-MM-DD')}
                                       </span>
                                       <span className="font-medium text-gray-900">
                                         {approval.timesheet.hours.toFixed(1)}h
@@ -1193,8 +1191,7 @@ const AdminApprovals: React.FC = () => {
               <Col span={12}>
                 <Card title="Timesheet Information" size="small">
                   <p><strong>Date:</strong> {selectedApproval.timesheet.date ? dayjs(selectedApproval.timesheet.date).format('YYYY-MM-DD') : 'N/A'}</p>
-                  <p><strong>Time:</strong> {selectedApproval.timesheet.startTime ? selectedApproval.timesheet.startTime.substring(11, 16) : 'N/A'} - {selectedApproval.timesheet.endTime ? selectedApproval.timesheet.endTime.substring(11, 16) : 'N/A'}</p>
-                  <p><strong>Duration:</strong> {selectedApproval.timesheet.hours || 0} hours</p>
+                  <p><strong>Hours:</strong> {selectedApproval.timesheet.hours || 0} hours</p>
                   <p><strong>Description:</strong> {selectedApproval.timesheet.description || 'N/A'}</p>
                 </Card>
               </Col>

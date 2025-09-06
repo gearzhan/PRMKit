@@ -55,7 +55,8 @@ const TimesheetEntry: React.FC = () => {
     entries,
     projects,
     stages,
-    selectedDate
+    selectedDate,
+    isNewMode // 传递新增模式标识
   });
 
 

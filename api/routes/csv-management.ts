@@ -49,156 +49,38 @@ const timesheetSchema = Joi.object({
   projectCode: Joi.string().required(),
   stageId: Joi.string().allow(''),
   date: Joi.date().required(),
-  startTime: Joi.date().optional(),
-  endTime: Joi.date().optional(),
-  hours: Joi.number().min(0).max(24).optional(),
-  duration: Joi.number().min(0).max(24).optional(), // 支持旧数据的duration字段
+  hours: Joi.number().min(0).max(24).required(), // 工时字段现在是必需的
   description: Joi.string().allow(''),
   status: Joi.string().valid(...Object.values(TimesheetStatus)).default('DRAFT'),
+});
+
+// Stages数据验证模式
+const stageSchema = Joi.object({
+  taskId: Joi.string().required(),
+  name: Joi.string().required(),
+  description: Joi.string().allow(''),
+  category: Joi.string().required(),
+  isActive: Joi.boolean().default(true),
 });
 
 // Timesheet数据转换工具函数
 function convertTimesheetData(row: any): any {
   const convertedRow = { ...row };
   
-  // 处理旧数据格式转换
-  if (!row.startTime && !row.endTime && (row.hours || row.duration)) {
-    // 如果没有开始和结束时间，但有工作时长，则默认从上午9点开始
-    const dateStr = row.date;
-    
-    // 验证日期字符串是否有效
-    let startTime: Date;
-    try {
-      // 尝试解析日期，支持多种格式
-      if (typeof dateStr === 'string') {
-        // 如果是字符串，尝试不同的日期格式
-        if (dateStr.includes('T') || dateStr.includes('Z')) {
-          // 已经是ISO格式
-          startTime = new Date(dateStr);
-        } else if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          // YYYY-MM-DD格式，添加时间部分（使用本地时间而不是UTC）
-          startTime = new Date(`${dateStr}T09:00:00`);
-        } else if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-          // DD/MM/YYYY格式，转换为标准格式
-          const [day, month, year] = dateStr.split('/');
-          startTime = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T09:00:00`);
-          console.log(`🔄 Converted DD/MM/YYYY date: ${dateStr} -> ${startTime.toISOString()}`);
-        } else {
-          // 其他格式，尝试直接解析
-          startTime = new Date(dateStr);
-          if (!isNaN(startTime.getTime())) {
-            startTime.setHours(9, 0, 0, 0);
-          }
-        }
-      } else if (dateStr instanceof Date) {
-        // 如果已经是Date对象
-        startTime = new Date(dateStr);
-        startTime.setHours(9, 0, 0, 0);
-      } else {
-        throw new Error('Invalid date format');
-      }
-      
-      // 检查日期是否有效
-      if (isNaN(startTime.getTime())) {
-        throw new Error('Invalid date value');
-      }
-    } catch (error) {
-      console.error(`❌ Invalid date in timesheet data: ${dateStr}`, error);
-      throw new Error(`Invalid date format: ${dateStr}`);
-    }
-    
-    // 使用duration或hours字段计算结束时间
-    const workHours = row.duration || row.hours;
-    if (!workHours || workHours <= 0) {
-      throw new Error(`Invalid work hours: ${workHours}`);
-    }
-    
-    const endTime = new Date(startTime);
-    
-    // 处理0.1小时到15分钟的转换
-    // 将小时转换为分钟，然后四舍五入到最近的15分钟
-    const totalMinutes = Math.round((workHours * 60) / 15) * 15;
-    endTime.setMinutes(endTime.getMinutes() + totalMinutes);
-    
-    convertedRow.startTime = startTime.toISOString();
-    convertedRow.endTime = endTime.toISOString();
-    convertedRow.hours = totalMinutes / 60; // 转换回小时
-    
-    console.log(`🔄 Converted legacy timesheet data:`);
-    console.log(`  - Original date: ${dateStr}`);
-    console.log(`  - Original duration/hours: ${workHours}`);
-    console.log(`  - Converted to: ${startTime.toISOString()} - ${endTime.toISOString()}`);
-    console.log(`  - Final hours: ${convertedRow.hours}`);
-  } else if (row.startTime && row.endTime) {
-    // 如果已有开始和结束时间，则忽略duration字段，重新计算hours
-    let start: Date, end: Date;
-    try {
-      start = new Date(row.startTime);
-      end = new Date(row.endTime);
-      
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        throw new Error('Invalid start or end time');
-      }
-    } catch (error) {
-      console.error(`❌ Invalid start/end time in timesheet data:`, { startTime: row.startTime, endTime: row.endTime }, error);
-      throw new Error(`Invalid start/end time format`);
-    }
-    
-    const diffMs = end.getTime() - start.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
-    
-    // 四舍五入到最近的0.25小时（15分钟）
-    convertedRow.hours = Math.round(diffHours * 4) / 4;
-    
-    console.log(`✅ Using provided start/end times, calculated hours: ${convertedRow.hours}`);
-  } else if (!row.startTime && !row.endTime && !row.hours && !row.duration) {
-    // 如果既没有开始/结束时间，也没有工作时长，则生成默认的8小时工作时间
-    const dateStr = row.date;
-    
-    let startTime: Date;
-    try {
-      // 尝试解析日期，支持多种格式
-      if (typeof dateStr === 'string') {
-        if (dateStr.includes('T') || dateStr.includes('Z')) {
-          startTime = new Date(dateStr);
-        } else if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          startTime = new Date(`${dateStr}T09:00:00`);
-        } else if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-          const [day, month, year] = dateStr.split('/');
-          startTime = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T09:00:00`);
-        } else {
-          startTime = new Date(dateStr);
-          if (!isNaN(startTime.getTime())) {
-            startTime.setHours(9, 0, 0, 0);
-          }
-        }
-      } else if (dateStr instanceof Date) {
-        startTime = new Date(dateStr);
-        startTime.setHours(9, 0, 0, 0);
-      } else {
-        throw new Error('Invalid date format');
-      }
-      
-      if (isNaN(startTime.getTime())) {
-        throw new Error('Invalid date value');
-      }
-    } catch (error) {
-      console.error(`❌ Invalid date in timesheet data: ${dateStr}`, error);
-      throw new Error(`Invalid date format: ${dateStr}`);
-    }
-    
-    // 生成默认的8小时工作时间（9:00-17:00）
-    const endTime = new Date(startTime);
-    endTime.setHours(17, 0, 0, 0);
-    
-    convertedRow.startTime = startTime.toISOString();
-    convertedRow.endTime = endTime.toISOString();
+  // 处理工时字段，支持旧数据的duration字段
+  if (row.duration && !row.hours) {
+    // 如果有duration字段但没有hours字段，将duration转换为hours
+    convertedRow.hours = row.duration;
+    console.log(`🔄 Converted duration to hours: ${row.duration}`);
+  } else if (!row.hours && !row.duration) {
+    // 如果既没有hours也没有duration，设置默认8小时
     convertedRow.hours = 8;
-    
-    console.log(`🔄 Generated default timesheet data for empty row:`);
-    console.log(`  - Date: ${dateStr}`);
-    console.log(`  - Generated: ${startTime.toISOString()} - ${endTime.toISOString()}`);
-    console.log(`  - Hours: 8`);
+    console.log(`🔄 Set default hours: 8`);
+  }
+  
+  // 确保工时值有效
+  if (convertedRow.hours <= 0 || convertedRow.hours > 24) {
+    throw new Error(`Invalid work hours: ${convertedRow.hours}`);
   }
   
   // 清理不需要的字段
@@ -324,8 +206,6 @@ router.get('/export/timesheets', authenticateToken, requireLevel1Admin, async (r
       projectCode: ts.project.projectCode,
       stageId: ts.stage?.taskId || '',
       date: ts.date.toISOString().split('T')[0],
-      startTime: ts.startTime.toISOString(),
-      endTime: ts.endTime.toISOString(),
       hours: ts.hours,
       description: ts.description || '',
       status: ts.status,
@@ -338,15 +218,58 @@ router.get('/export/timesheets', authenticateToken, requireLevel1Admin, async (r
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     
-    const header = 'Employee ID,Project Code,Stage ID,Date,Start Time,End Time,Hours,Description,Status,Created At,Updated At\n';
+    const header = 'Employee ID,Project Code,Stage ID,Date,Hours,Description,Status,Created At,Updated At\n';
     const rows = csvData.map(row => 
-      `"${row.employeeId}","${row.projectCode}","${row.stageId}","${row.date}","${row.startTime}","${row.endTime}","${row.hours}","${row.description}","${row.status}","${row.createdAt}","${row.updatedAt}"`
+      `"${row.employeeId}","${row.projectCode}","${row.stageId}","${row.date}","${row.hours}","${row.description}","${row.status}","${row.createdAt}","${row.updatedAt}"`
     ).join('\n');
     
     res.send(header + rows);
   } catch (error) {
     console.error('Export timesheets error:', error);
     res.status(500).json({ error: 'Failed to export timesheets data' });
+  }
+});
+
+// 导出阶段数据为CSV
+router.get('/export/stages', authenticateToken, requireLevel1Admin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const stages = await prisma.stage.findMany({
+      select: {
+        taskId: true,
+        name: true,
+        description: true,
+        category: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { taskId: 'asc' },
+    });
+
+    const csvData = stages.map(stage => ({
+      taskId: stage.taskId,
+      name: stage.name,
+      description: stage.description || '',
+      category: stage.category,
+      isActive: stage.isActive,
+      createdAt: stage.createdAt.toISOString(),
+      updatedAt: stage.updatedAt.toISOString(),
+    }));
+
+    const filename = `stages_${new Date().toISOString().split('T')[0]}.csv`;
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    const header = 'Task ID,Name,Description,Category,Is Active,Created At,Updated At\n';
+    const rows = csvData.map(row => 
+      `"${row.taskId}","${row.name}","${row.description}","${row.category}","${row.isActive}","${row.createdAt}","${row.updatedAt}"`
+    ).join('\n');
+    
+    res.send(header + rows);
+  } catch (error) {
+    console.error('Export stages error:', error);
+    res.status(500).json({ error: 'Failed to export stages data' });
   }
 });
 
@@ -371,9 +294,14 @@ router.get('/template/:dataType', authenticateToken, requireLevel1Admin, async (
         filename = 'projects_template.csv';
         break;
       case 'timesheets':
-        header = 'Employee ID,Project Code,Stage ID,Date,Start Time,End Time,Hours,Description,Status';
-        sampleRow = 'EMP001,PROJ001,TD.01.00,2024-01-01,2024-01-01T09:00:00Z,2024-01-01T17:00:00Z,8,Daily work,DRAFT';
+        header = 'Employee ID,Project Code,Stage ID,Date,Hours,Description,Status';
+        sampleRow = 'EMP001,PROJ001,TD.01.00,2024-01-01,8,Daily work,DRAFT';
         filename = 'timesheets_template.csv';
+        break;
+      case 'stages':
+        header = 'Task ID,Name,Description,Category,Is Active';
+        sampleRow = 'TD.01.00,Task Design,Task design description,Design,true';
+        filename = 'stages_template.csv';
         break;
       default:
         return res.status(400).json({ error: 'Invalid data type' });
@@ -396,7 +324,7 @@ router.post('/import/validate', authenticateToken, requireLevel1Admin, upload.si
     }
 
     const { dataType, duplicateDecisions } = req.body;
-    if (!dataType || !['EMPLOYEE', 'PROJECT', 'TIMESHEET'].includes(dataType)) {
+    if (!dataType || !['EMPLOYEE', 'PROJECT', 'TIMESHEET', 'STAGE'].includes(dataType)) {
       return res.status(400).json({ error: 'Invalid data type' });
     }
     
@@ -445,20 +373,48 @@ router.post('/import/validate', authenticateToken, requireLevel1Admin, upload.si
       }
     };
 
+    // 辅助函数：清理字段名中的BOM字符和空白字符
+    const cleanFieldName = (fieldName: string): string => {
+      return fieldName.replace(/^\uFEFF/, '').trim();
+    };
+
+    // 辅助函数：获取字段值，支持BOM字符处理
+    const getFieldValue = (data: any, fieldName: string): any => {
+      // 直接匹配
+      if (data[fieldName] !== undefined) {
+        return data[fieldName];
+      }
+      
+      // 尝试匹配带BOM的字段名
+      const bomFieldName = '\uFEFF' + fieldName;
+      if (data[bomFieldName] !== undefined) {
+        return data[bomFieldName];
+      }
+      
+      // 尝试在所有字段中找到清理后匹配的字段
+      for (const key in data) {
+        if (cleanFieldName(key) === fieldName) {
+          return data[key];
+        }
+      }
+      
+      return undefined;
+    };
+
     // CSV字段映射函数
     const mapCsvFields = (data: any, dataType: string) => {
       const mappedData: any = {}; // 只返回映射后的字段，不包含原始字段
       
       if (dataType === 'EMPLOYEE') {
         // 员工数据字段映射
-        if (data['Employee ID']) mappedData.employeeId = data['Employee ID'];
-        if (data['Name']) mappedData.name = data['Name'];
-        if (data['Email']) mappedData.email = data['Email'];
-        if (data['Role']) mappedData.role = data['Role'];
-        if (data['Position']) mappedData.position = data['Position'];
-        if (data['Is Active']) {
+        if (getFieldValue(data, 'Employee ID')) mappedData.employeeId = getFieldValue(data, 'Employee ID');
+        if (getFieldValue(data, 'Name')) mappedData.name = getFieldValue(data, 'Name');
+        if (getFieldValue(data, 'Email')) mappedData.email = getFieldValue(data, 'Email');
+        if (getFieldValue(data, 'Role')) mappedData.role = getFieldValue(data, 'Role');
+        if (getFieldValue(data, 'Position')) mappedData.position = getFieldValue(data, 'Position');
+        if (getFieldValue(data, 'Is Active')) {
           // 处理布尔值转换
-          const isActiveValue = data['Is Active'];
+          const isActiveValue = getFieldValue(data, 'Is Active');
           if (typeof isActiveValue === 'string') {
             mappedData.isActive = isActiveValue.toLowerCase() === 'true' || isActiveValue === '1' || isActiveValue.toLowerCase() === 'active';
           } else {
@@ -467,60 +423,54 @@ router.post('/import/validate', authenticateToken, requireLevel1Admin, upload.si
         }
       } else if (dataType === 'PROJECT') {
         // 项目数据字段映射
-        if (data['Project Code']) mappedData.projectCode = data['Project Code'];
-        if (data['Name']) mappedData.name = data['Name'];
-        if (data['Description']) mappedData.description = data['Description'];
-        if (data['Nickname']) mappedData.nickname = data['Nickname'];
+        if (getFieldValue(data, 'Project Code')) mappedData.projectCode = getFieldValue(data, 'Project Code');
+        if (getFieldValue(data, 'Name')) mappedData.name = getFieldValue(data, 'Name');
+        if (getFieldValue(data, 'Description')) mappedData.description = getFieldValue(data, 'Description');
+        if (getFieldValue(data, 'Nickname')) mappedData.nickname = getFieldValue(data, 'Nickname');
         // 日期字段需要格式转换
-        if (data['Start Date']) {
-          const convertedDate = convertDateFormat(data['Start Date']);
+        if (getFieldValue(data, 'Start Date')) {
+          const convertedDate = convertDateFormat(getFieldValue(data, 'Start Date'));
           if (convertedDate) {
             mappedData.startDate = convertedDate;
           }
         }
-        if (data['End Date']) {
-          const convertedDate = convertDateFormat(data['End Date']);
+        if (getFieldValue(data, 'End Date')) {
+          const convertedDate = convertDateFormat(getFieldValue(data, 'End Date'));
           if (convertedDate) {
             mappedData.endDate = convertedDate;
           }
         }
-        if (data['Status']) mappedData.status = data['Status'];
+        if (getFieldValue(data, 'Status')) mappedData.status = getFieldValue(data, 'Status');
       } else if (dataType === 'TIMESHEET') {
         // 工时数据字段映射
-        if (data['Employee ID']) mappedData.employeeId = data['Employee ID'];
-        if (data['Project Code']) mappedData.projectCode = data['Project Code'];
-        if (data['Stage ID']) mappedData.stageId = data['Stage ID'];
+        if (getFieldValue(data, 'Employee ID')) mappedData.employeeId = getFieldValue(data, 'Employee ID');
+        if (getFieldValue(data, 'Project Code')) mappedData.projectCode = getFieldValue(data, 'Project Code');
+        if (getFieldValue(data, 'Stage ID')) mappedData.stageId = getFieldValue(data, 'Stage ID');
         // 日期字段需要格式转换
-        if (data['Date']) {
-          const convertedDate = convertDateFormat(data['Date']);
+        if (getFieldValue(data, 'Date')) {
+          const convertedDate = convertDateFormat(getFieldValue(data, 'Date'));
           if (convertedDate) {
             mappedData.date = convertedDate;
           } else {
-            console.warn(`无法转换日期格式: ${data['Date']}`);
-            mappedData.date = data['Date']; // 保留原始值，让后续验证处理
+            console.warn(`无法转换日期格式: ${getFieldValue(data, 'Date')}`);
+            mappedData.date = getFieldValue(data, 'Date'); // 保留原始值，让后续验证处理
           }
         }
-        // 处理时间字段，只有非空值才设置
-        if (data['Start Time'] && data['Start Time'].trim() !== '') {
-          mappedData.startTime = data['Start Time'];
-        }
-        if (data['End Time'] && data['End Time'].trim() !== '') {
-          mappedData.endTime = data['End Time'];
-        }
-        if (data['Hours']) {
-          const hoursValue = parseFloat(data['Hours']);
+        // 处理工时字段
+        if (getFieldValue(data, 'Hours')) {
+          const hoursValue = parseFloat(getFieldValue(data, 'Hours'));
           if (!isNaN(hoursValue)) {
             mappedData.hours = hoursValue;
           }
         }
-        if (data['Duration']) {
-          const durationValue = parseFloat(data['Duration']);
+        if (getFieldValue(data, 'Duration')) {
+          const durationValue = parseFloat(getFieldValue(data, 'Duration'));
           if (!isNaN(durationValue)) {
             mappedData.duration = durationValue;
           }
         }
-        if (data['Description']) mappedData.description = data['Description'];
-        if (data['Status']) mappedData.status = data['Status'];
+        if (getFieldValue(data, 'Description')) mappedData.description = getFieldValue(data, 'Description');
+        if (getFieldValue(data, 'Status')) mappedData.status = getFieldValue(data, 'Status');
         
         // 应用timesheet数据转换规则
         try {
@@ -533,6 +483,29 @@ router.post('/import/validate', authenticateToken, requireLevel1Admin, upload.si
             message: conversionError instanceof Error ? conversionError.message : 'Data conversion failed',
             field: 'date/time'
           };
+        }
+      } else if (dataType === 'STAGE') {
+        // 阶段数据字段映射 - 支持多种字段名格式
+        if (getFieldValue(data, 'Task ID') || getFieldValue(data, 'taskId')) {
+          mappedData.taskId = getFieldValue(data, 'Task ID') || getFieldValue(data, 'taskId');
+        }
+        if (getFieldValue(data, 'Name') || getFieldValue(data, 'name')) {
+          mappedData.name = getFieldValue(data, 'Name') || getFieldValue(data, 'name');
+        }
+        if (getFieldValue(data, 'Description') || getFieldValue(data, 'description')) {
+          mappedData.description = getFieldValue(data, 'Description') || getFieldValue(data, 'description');
+        }
+        if (getFieldValue(data, 'Category') || getFieldValue(data, 'category')) {
+          mappedData.category = getFieldValue(data, 'Category') || getFieldValue(data, 'category');
+        }
+        if (getFieldValue(data, 'Is Active') || getFieldValue(data, 'isActive')) {
+          // 处理布尔值转换
+          const isActiveValue = getFieldValue(data, 'Is Active') || getFieldValue(data, 'isActive');
+          if (typeof isActiveValue === 'string') {
+            mappedData.isActive = isActiveValue.toLowerCase() === 'true' || isActiveValue === '1' || isActiveValue.toLowerCase() === 'active';
+          } else {
+            mappedData.isActive = Boolean(isActiveValue);
+          }
         }
       }
       
@@ -557,7 +530,8 @@ router.post('/import/validate', authenticateToken, requireLevel1Admin, upload.si
 
     // 验证每一行数据
     const schema = dataType === 'EMPLOYEE' ? employeeSchema : 
-                  dataType === 'PROJECT' ? projectSchema : timesheetSchema;
+                  dataType === 'PROJECT' ? projectSchema : 
+                  dataType === 'STAGE' ? stageSchema : timesheetSchema;
 
     console.log(`\n=== CSV Validation Debug Info ===`);
     console.log(`Data Type: ${dataType}`);
@@ -632,16 +606,7 @@ router.post('/import/validate', authenticateToken, requireLevel1Admin, upload.si
                 friendlyMessage = '工时不能超过24小时';
               }
               break;
-            case 'startTime':
-              if (detail.type === 'date.base') {
-                friendlyMessage = `开始时间格式无效: ${detail.context?.value}`;
-              }
-              break;
-            case 'endTime':
-              if (detail.type === 'date.base') {
-                friendlyMessage = `结束时间格式无效: ${detail.context?.value}`;
-              }
-              break;
+            // startTime和endTime字段已从Timesheet模型中移除
             case 'status':
               if (detail.type === 'any.only') {
                 friendlyMessage = `状态值无效: ${detail.context?.value}。允许的值: DRAFT, SUBMITTED, APPROVED`;
@@ -679,6 +644,8 @@ router.post('/import/validate', authenticateToken, requireLevel1Admin, upload.si
         await validateProjectsData(rows, errors, duplicates);
       } else if (dataType === 'TIMESHEET') {
         await validateTimesheetsData(rows, errors, duplicates);
+      } else if (dataType === 'STAGE') {
+        await validateStagesData(rows, errors, duplicates);
       }
 
     res.json({
@@ -704,7 +671,7 @@ router.post('/import/execute', authenticateToken, requireLevel1Admin, upload.sin
     }
 
     const { dataType } = req.body;
-    if (!dataType || !['EMPLOYEE', 'PROJECT', 'TIMESHEET'].includes(dataType)) {
+    if (!dataType || !['EMPLOYEE', 'PROJECT', 'TIMESHEET', 'STAGE'].includes(dataType)) {
       return res.status(400).json({ error: 'Invalid data type' });
     }
 
@@ -832,20 +799,48 @@ router.post('/import/execute', authenticateToken, requireLevel1Admin, upload.sin
       }
     };
 
+    // 辅助函数：清理字段名中的BOM字符和空白字符
+    const cleanFieldName = (fieldName: string): string => {
+      return fieldName.replace(/^\uFEFF/, '').trim();
+    };
+
+    // 辅助函数：获取字段值，支持BOM字符处理
+    const getFieldValue = (data: any, fieldName: string): any => {
+      // 直接匹配
+      if (data[fieldName] !== undefined) {
+        return data[fieldName];
+      }
+      
+      // 尝试匹配带BOM的字段名
+      const bomFieldName = '\uFEFF' + fieldName;
+      if (data[bomFieldName] !== undefined) {
+        return data[bomFieldName];
+      }
+      
+      // 尝试在所有字段中找到清理后匹配的字段
+      for (const key in data) {
+        if (cleanFieldName(key) === fieldName) {
+          return data[key];
+        }
+      }
+      
+      return undefined;
+    };
+
     // CSV字段映射函数（与验证路由保持一致）
     const mapCsvFields = (data: any, dataType: string) => {
-      const mappedData = { ...data };
+      const mappedData: any = {}; // 只返回映射后的字段，不包含原始字段
       
       if (dataType === 'EMPLOYEE') {
         // 员工数据字段映射
-        if (data['Employee ID']) mappedData.employeeId = data['Employee ID'];
-        if (data['Name']) mappedData.name = data['Name'];
-        if (data['Email']) mappedData.email = data['Email'];
-        if (data['Role']) mappedData.role = data['Role'];
-        if (data['Position']) mappedData.position = data['Position'];
-        if (data['Is Active']) {
+        if (getFieldValue(data, 'Employee ID')) mappedData.employeeId = getFieldValue(data, 'Employee ID');
+        if (getFieldValue(data, 'Name')) mappedData.name = getFieldValue(data, 'Name');
+        if (getFieldValue(data, 'Email')) mappedData.email = getFieldValue(data, 'Email');
+        if (getFieldValue(data, 'Role')) mappedData.role = getFieldValue(data, 'Role');
+        if (getFieldValue(data, 'Position')) mappedData.position = getFieldValue(data, 'Position');
+        if (getFieldValue(data, 'Is Active')) {
           // 处理布尔值转换
-          const isActiveValue = data['Is Active'];
+          const isActiveValue = getFieldValue(data, 'Is Active');
           if (typeof isActiveValue === 'string') {
             mappedData.isActive = isActiveValue.toLowerCase() === 'true' || isActiveValue === '1' || isActiveValue.toLowerCase() === 'active';
           } else {
@@ -854,40 +849,90 @@ router.post('/import/execute', authenticateToken, requireLevel1Admin, upload.sin
         }
       } else if (dataType === 'PROJECT') {
         // 项目数据字段映射
-        if (data['Project Code']) mappedData.projectCode = data['Project Code'];
-        if (data['Name']) mappedData.name = data['Name'];
-        if (data['Description']) mappedData.description = data['Description'];
-        if (data['Nickname']) mappedData.nickname = data['Nickname'];
+        if (getFieldValue(data, 'Project Code')) mappedData.projectCode = getFieldValue(data, 'Project Code');
+        if (getFieldValue(data, 'Name')) mappedData.name = getFieldValue(data, 'Name');
+        if (getFieldValue(data, 'Description')) mappedData.description = getFieldValue(data, 'Description');
+        if (getFieldValue(data, 'Nickname')) mappedData.nickname = getFieldValue(data, 'Nickname');
         // 日期字段需要格式转换
-        if (data['Start Date']) {
-          const convertedDate = convertDateFormat(data['Start Date']);
+        if (getFieldValue(data, 'Start Date')) {
+          const convertedDate = convertDateFormat(getFieldValue(data, 'Start Date'));
           if (convertedDate) {
             mappedData.startDate = convertedDate;
           }
         }
-        if (data['End Date']) {
-          const convertedDate = convertDateFormat(data['End Date']);
+        if (getFieldValue(data, 'End Date')) {
+          const convertedDate = convertDateFormat(getFieldValue(data, 'End Date'));
           if (convertedDate) {
             mappedData.endDate = convertedDate;
           }
         }
-        if (data['Status']) mappedData.status = data['Status'];
+        if (getFieldValue(data, 'Status')) mappedData.status = getFieldValue(data, 'Status');
       } else if (dataType === 'TIMESHEET') {
         // 工时数据字段映射
-        if (data['Employee ID']) mappedData.employeeId = data['Employee ID'];
-        if (data['Project Code']) mappedData.projectCode = data['Project Code'];
-        if (data['Stage ID']) mappedData.stageId = data['Stage ID'];
-        if (data['Date']) mappedData.date = data['Date'];
-        if (data['Start Time']) mappedData.startTime = data['Start Time'];
-        if (data['End Time']) mappedData.endTime = data['End Time'];
-        if (data['Hours']) mappedData.hours = parseFloat(data['Hours']);
-        if (data['Duration']) mappedData.duration = parseFloat(data['Duration']);
-        if (data['Description']) mappedData.description = data['Description'];
-        if (data['Status']) mappedData.status = data['Status'];
+        if (getFieldValue(data, 'Employee ID')) mappedData.employeeId = getFieldValue(data, 'Employee ID');
+        if (getFieldValue(data, 'Project Code')) mappedData.projectCode = getFieldValue(data, 'Project Code');
+        if (getFieldValue(data, 'Stage ID')) mappedData.stageId = getFieldValue(data, 'Stage ID');
+        // 日期字段需要格式转换
+        if (getFieldValue(data, 'Date')) {
+          const convertedDate = convertDateFormat(getFieldValue(data, 'Date'));
+          if (convertedDate) {
+            mappedData.date = convertedDate;
+          } else {
+            console.warn(`无法转换日期格式: ${getFieldValue(data, 'Date')}`);
+            mappedData.date = getFieldValue(data, 'Date'); // 保留原始值，让后续验证处理
+          }
+        }
+        // 处理工时字段
+        if (getFieldValue(data, 'Hours')) {
+          const hoursValue = parseFloat(getFieldValue(data, 'Hours'));
+          if (!isNaN(hoursValue)) {
+            mappedData.hours = hoursValue;
+          }
+        }
+        if (getFieldValue(data, 'Duration')) {
+          const durationValue = parseFloat(getFieldValue(data, 'Duration'));
+          if (!isNaN(durationValue)) {
+            mappedData.duration = durationValue;
+          }
+        }
+        if (getFieldValue(data, 'Description')) mappedData.description = getFieldValue(data, 'Description');
+        if (getFieldValue(data, 'Status')) mappedData.status = getFieldValue(data, 'Status');
         
         // 应用timesheet数据转换规则
-        const convertedData = convertTimesheetData(mappedData);
-        Object.assign(mappedData, convertedData);
+        try {
+          const convertedData = convertTimesheetData(mappedData);
+          Object.assign(mappedData, convertedData);
+        } catch (conversionError) {
+          console.error(`❌ Timesheet data conversion failed:`, conversionError);
+          // 将转换错误标记到数据中，稍后在验证阶段处理
+          mappedData._conversionError = {
+            message: conversionError instanceof Error ? conversionError.message : 'Data conversion failed',
+            field: 'date/time'
+          };
+        }
+      } else if (dataType === 'STAGE') {
+        // 阶段数据字段映射 - 支持多种字段名格式
+        if (getFieldValue(data, 'Task ID') || getFieldValue(data, 'taskId')) {
+          mappedData.taskId = getFieldValue(data, 'Task ID') || getFieldValue(data, 'taskId');
+        }
+        if (getFieldValue(data, 'Name') || getFieldValue(data, 'name')) {
+          mappedData.name = getFieldValue(data, 'Name') || getFieldValue(data, 'name');
+        }
+        if (getFieldValue(data, 'Description') || getFieldValue(data, 'description')) {
+          mappedData.description = getFieldValue(data, 'Description') || getFieldValue(data, 'description');
+        }
+        if (getFieldValue(data, 'Category') || getFieldValue(data, 'category')) {
+          mappedData.category = getFieldValue(data, 'Category') || getFieldValue(data, 'category');
+        }
+        if (data['Is Active'] || data['isActive']) {
+          // 处理布尔值转换
+          const isActiveValue = data['Is Active'] || data['isActive'];
+          if (typeof isActiveValue === 'string') {
+            mappedData.isActive = isActiveValue.toLowerCase() === 'true' || isActiveValue === '1' || isActiveValue.toLowerCase() === 'active';
+          } else {
+            mappedData.isActive = Boolean(isActiveValue);
+          }
+        }
       }
       
       return mappedData;
@@ -925,6 +970,8 @@ router.post('/import/execute', authenticateToken, requireLevel1Admin, upload.sin
           await importProjectRow(row, rowDecision === 'replace');
         } else if (dataType === 'TIMESHEET') {
           await importTimesheetRow(row, rowDecision === 'replace');
+        } else if (dataType === 'STAGE') {
+          await importStageRow(row, rowDecision === 'replace');
         }
         successCount++;
       } catch (error: any) {
@@ -1043,6 +1090,57 @@ router.get('/import/logs/:id', authenticateToken, requireLevel1Admin, async (req
     res.status(500).json({ error: 'Failed to get import log detail' });
   }
 });
+
+// 辅助函数：验证阶段数据
+async function validateStagesData(rows: any[], errors: any[], duplicates: any[] = []) {
+  const taskIds = rows.map(row => row.taskId).filter(Boolean);
+  
+  // 检查数据库中是否已存在，获取完整的阶段信息用于对比
+  const existingStages = await prisma.stage.findMany({
+    where: { taskId: { in: taskIds } },
+    select: { 
+      taskId: true, 
+      name: true, 
+      description: true, 
+      category: true, 
+      isActive: true 
+    },
+  });
+  
+  const existingTaskIds = new Set(existingStages.map(s => s.taskId));
+  
+  // 创建映射以便快速查找现有阶段数据
+  const existingStageMap = new Map();
+  existingStages.forEach(stage => {
+    existingStageMap.set(stage.taskId, stage);
+  });
+  
+  rows.forEach(row => {
+    if (existingTaskIds.has(row.taskId)) {
+      const existingData = existingStageMap.get(row.taskId);
+      
+      // 添加到重复数据列表而不是错误列表
+      duplicates.push({
+        rowNumber: row.rowNumber,
+        newData: {
+          taskId: row.taskId,
+          name: row.name,
+          description: row.description,
+          category: row.category,
+          isActive: row.isActive
+        },
+        existingData: {
+          taskId: existingData.taskId,
+          name: existingData.name,
+          description: existingData.description,
+          category: existingData.category,
+          isActive: existingData.isActive
+        },
+        conflictFields: ['taskId']
+      });
+    }
+  });
+}
 
 // 辅助函数：验证员工数据
 async function validateEmployeesData(rows: any[], errors: any[], duplicates: any[] = []) {
@@ -1361,47 +1459,7 @@ async function validateTimesheetsData(rows: any[], errors: any[], duplicates: an
           return null;
         }
         
-        // 验证开始时间格式（可选字段）
-        if (row.startTime && row.startTime.trim() !== '') {
-          const parsedStartTime = parseTimeString(row.startTime);
-          if (!parsedStartTime) {
-            errors.push({
-              rowNumber: row.rowNumber,
-              errors: [{ field: 'startTime', message: 'Invalid start time format. Expected HH:MM or ISO timestamp', value: row.startTime }],
-            });
-          }
-        }
-        
-        // 验证结束时间格式（可选字段）
-        if (row.endTime && row.endTime.trim() !== '') {
-          const parsedEndTime = parseTimeString(row.endTime);
-          if (!parsedEndTime) {
-            errors.push({
-              rowNumber: row.rowNumber,
-              errors: [{ field: 'endTime', message: 'Invalid end time format. Expected HH:MM or ISO timestamp', value: row.endTime }],
-            });
-          }
-        }
-        
-        // 验证开始时间和结束时间的逻辑关系
-        if (row.startTime && row.endTime && row.startTime.trim() !== '' && row.endTime.trim() !== '') {
-          const parsedStartTime = parseTimeString(row.startTime);
-          const parsedEndTime = parseTimeString(row.endTime);
-          
-          if (parsedStartTime && parsedEndTime) {
-            const startTotalMinutes = parsedStartTime.hours * 60 + parsedStartTime.minutes;
-            const endTotalMinutes = parsedEndTime.hours * 60 + parsedEndTime.minutes;
-            
-            // 只有当开始时间严格大于结束时间时才报错
-            // 如果开始时间等于结束时间，跳过验证（可能是占位符数据）
-            if (startTotalMinutes > endTotalMinutes) {
-              errors.push({
-                rowNumber: row.rowNumber,
-                errors: [{ field: 'endTime', message: 'End time must be after start time', value: `${row.startTime} - ${row.endTime}` }],
-              });
-            }
-          }
-        }
+        // 注意：startTime和endTime字段已从Timesheet模型中移除，不再进行相关验证
         
         // 检查重复的工时记录
         if (row.employeeId && row.projectCode && row.date) {
@@ -1554,7 +1612,7 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
   console.log('Raw row data:', JSON.stringify(row, null, 2));
   console.log(`Replace mode: ${shouldReplace}`);
   console.log(`Employee ID: ${row.employeeId}, Project Code: ${row.projectCode}`);
-  console.log(`Date: ${row.date}, StartTime: ${row.startTime}, EndTime: ${row.endTime}, Hours: ${row.hours}`);
+  console.log(`Date: ${row.date}, Hours: ${row.hours}`);
   
   // 获取员工和项目ID
   const employee = await prisma.employee.findUnique({
@@ -1603,51 +1661,7 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
     throw new Error(`Date conversion failed for: ${row.date}`);
   }
   
-  // 处理时间字段 - 允许为空
-  let startTimeValue: Date | null = null;
-  let endTimeValue: Date | null = null;
-  
-  if (row.startTime && row.startTime.trim() !== '') {
-    try {
-      // 如果startTime是时间格式(HH:mm)，需要结合日期
-      if (typeof row.startTime === 'string' && row.startTime.match(/^\d{1,2}:\d{2}$/)) {
-        const [hours, minutes] = row.startTime.split(':');
-        startTimeValue = new Date(dateValue);
-        startTimeValue.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      } else {
-        startTimeValue = new Date(row.startTime);
-      }
-      
-      if (isNaN(startTimeValue.getTime())) {
-        console.warn(`Invalid start time: ${row.startTime}, setting to null`);
-        startTimeValue = null;
-      }
-    } catch (error) {
-      console.warn(`Start time conversion failed: ${row.startTime}, setting to null`);
-      startTimeValue = null;
-    }
-  }
-  
-  if (row.endTime && row.endTime.trim() !== '') {
-    try {
-      // 如果endTime是时间格式(HH:mm)，需要结合日期
-      if (typeof row.endTime === 'string' && row.endTime.match(/^\d{1,2}:\d{2}$/)) {
-        const [hours, minutes] = row.endTime.split(':');
-        endTimeValue = new Date(dateValue);
-        endTimeValue.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      } else {
-        endTimeValue = new Date(row.endTime);
-      }
-      
-      if (isNaN(endTimeValue.getTime())) {
-        console.warn(`Invalid end time: ${row.endTime}, setting to null`);
-        endTimeValue = null;
-      }
-    } catch (error) {
-      console.warn(`End time conversion failed: ${row.endTime}, setting to null`);
-      endTimeValue = null;
-    }
-  }
+  // 注意：startTime和endTime字段已从Timesheet模型中移除
   
   // 验证hours字段
   let hoursValue: number;
@@ -1665,15 +1679,13 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
     projectId: project.id,
     stageId,
     date: dateValue,
-    startTime: startTimeValue,
-    endTime: endTimeValue,
     hours: hoursValue,
     description: row.description || null,
     status: (row.status as TimesheetStatus) || TimesheetStatus.DRAFT,
   };
   
   console.log('Processed timesheet data:', JSON.stringify(timesheetData, null, 2));
-  console.log(`Unique constraint key: employeeId=${employee.id}, projectId=${project.id}, date=${dateValue.toISOString()}, startTime=${startTimeValue ? startTimeValue.toISOString() : 'null'}`);
+  console.log(`Unique constraint key: employeeId=${employee.id}, projectId=${project.id}, date=${dateValue.toISOString()}, stageId=${stageId || 'null'}`);
   
   // 检查是否存在潜在的重复记录
   const existingRecord = await prisma.timesheet.findFirst({
@@ -1681,7 +1693,7 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
       employeeId: employee.id,
       projectId: project.id,
       date: dateValue,
-      startTime: startTimeValue
+      stageId: stageId
     }
   });
   
@@ -1690,7 +1702,7 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
     console.warn('Existing record details:', JSON.stringify({
       id: existingRecord.id,
       date: existingRecord.date,
-      startTime: existingRecord.startTime,
+      stageId: existingRecord.stageId,
       hours: existingRecord.hours
     }, null, 2));
   }
@@ -1701,7 +1713,7 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
     employeeId: employee.id,
     projectId: project.id,
     date: dateValue,
-    startTime: startTimeValue
+    stageId: stageId
   };
   
   console.log('Delete condition:', JSON.stringify(deleteCondition, null, 2));
@@ -1711,7 +1723,7 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
   });
   
   if (deletedRecords.count > 0) {
-    console.log(`🔄 Deleted ${deletedRecords.count} existing timesheet(s) for employee ${row.employeeId}, project ${row.projectCode}, date ${row.date}, startTime ${startTimeValue ? startTimeValue.toISOString() : 'null'} (${shouldReplace ? 'replace mode' : 'duplicate prevention'})`);
+    console.log(`🔄 Deleted ${deletedRecords.count} existing timesheet(s) for employee ${row.employeeId}, project ${row.projectCode}, date ${row.date}, stageId ${stageId || 'null'} (${shouldReplace ? 'replace mode' : 'duplicate prevention'})`);
   }
   
   try {
@@ -1721,7 +1733,7 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
         employeeId: employee.id,
         projectId: project.id,
         date: dateValue,
-        startTime: startTimeValue
+        stageId: stageId
       }
     });
     
@@ -1732,14 +1744,53 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
         employeeId: conflictCheck.employeeId,
         projectId: conflictCheck.projectId,
         date: conflictCheck.date,
-        startTime: conflictCheck.startTime,
+        stageId: conflictCheck.stageId,
         hours: conflictCheck.hours
       }, null, 2));
     }
     
-    await prisma.timesheet.create({
+    // 创建工时记录
+    const createdTimesheet = await prisma.timesheet.create({
       data: timesheetData,
     });
+    
+    // 根据状态创建相应的审批记录
+    if (timesheetData.status === TimesheetStatus.SUBMITTED || timesheetData.status === TimesheetStatus.APPROVED) {
+      console.log(`🔍 Status is ${timesheetData.status}, creating approval record...`);
+      
+      // 查找employeeId为'PSEC-000'的员工作为默认审批人
+      const defaultApprover = await prisma.employee.findUnique({
+        where: { employeeId: 'PSEC-000' },
+        select: { id: true, name: true }
+      });
+      
+      if (defaultApprover) {
+        // 根据timesheet状态确定approval状态和相关字段
+        const approvalData: any = {
+          timesheetId: createdTimesheet.id,
+          submitterId: employee.id, // 提交人是工时记录的员工
+          approverId: defaultApprover.id, // 审批人是PSEC-000
+          comments: 'Automatically created approval record during CSV import'
+        };
+        
+        if (timesheetData.status === TimesheetStatus.APPROVED) {
+          approvalData.status = 'APPROVED';
+          approvalData.approvedAt = new Date(); // 当前导入时间
+        } else if (timesheetData.status === TimesheetStatus.SUBMITTED) {
+          approvalData.status = 'PENDING';
+          approvalData.submittedAt = new Date(); // 当前导入时间
+        }
+        
+        // 创建审批记录
+        await prisma.approval.create({
+          data: approvalData
+        });
+        
+        console.log(`✅ Auto-created ${approvalData.status} approval record for timesheet ${createdTimesheet.id} with approver ${defaultApprover.name} (PSEC-000)`);
+      } else {
+        console.warn(`⚠️  Default approver with employeeId 'PSEC-000' not found, skipping approval record creation`);
+      }
+    }
     
     console.log(`✅ Timesheet for ${row.employeeId} ${shouldReplace ? 'replaced' : 'imported'} successfully`);
   } catch (error: any) {
@@ -1748,7 +1799,7 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
     
     // 处理唯一约束冲突错误
     if (error.code === 'P2002') {
-      const startTimeStr = startTimeValue ? startTimeValue.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '未指定';
+      const stageStr = stageId || '未指定阶段';
       
       // 查询所有可能冲突的记录
       const conflictingRecords = await prisma.timesheet.findMany({
@@ -1759,7 +1810,7 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
         },
         select: {
           id: true,
-          startTime: true,
+          stageId: true,
           hours: true,
           description: true
         }
@@ -1770,8 +1821,8 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
       // 检查是否是CSV文件内部重复数据导致的问题
       const duplicateInCSV = conflictingRecords.length === 0;
       const errorMessage = duplicateInCSV 
-        ? `CSV文件内部数据重复：员工 ${row.employeeId}，项目 ${row.projectCode}，日期 ${row.date}，开始时间 ${startTimeStr}。请检查CSV文件中是否有重复的行数据。`
-        : `数据库唯一约束冲突：员工 ${row.employeeId}，项目 ${row.projectCode}，日期 ${row.date}，开始时间 ${startTimeStr}。数据库中已存在 ${conflictingRecords.length} 条相同日期的记录。建议使用"Replace All"选项来替换现有数据。`;
+        ? `CSV文件内部数据重复：员工 ${row.employeeId}，项目 ${row.projectCode}，日期 ${row.date}，阶段 ${stageStr}。请检查CSV文件中是否有重复的行数据。`
+        : `数据库唯一约束冲突：员工 ${row.employeeId}，项目 ${row.projectCode}，日期 ${row.date}，阶段 ${stageStr}。数据库中已存在 ${conflictingRecords.length} 条相同日期的记录。建议使用"Replace All"选项来替换现有数据。`;
       
       throw new Error(errorMessage);
     }
@@ -1779,6 +1830,68 @@ async function importTimesheetRow(row: any, shouldReplace: boolean = false) {
     // 重新抛出其他错误
     throw error;
   }
+}
+
+// 辅助函数：导入阶段行
+async function importStageRow(row: any, shouldReplace: boolean = false) {
+  console.log(`\n=== ImportStageRow Debug - Row ${row.rowNumber || 'unknown'} ===`);
+  console.log('Raw row data:', JSON.stringify(row, null, 2));
+  console.log(`Replace mode: ${shouldReplace}`);
+  console.log(`Task ID: ${row.taskId}`);
+  
+  // 验证必填字段
+  if (!row.taskId) {
+    throw new Error('Task ID is required');
+  }
+  
+  if (!row.name) {
+    throw new Error('Name is required');
+  }
+  
+  // 处理isActive字段转换
+  let isActiveValue = true; // 默认为true
+  if (row.isActive !== undefined && row.isActive !== null) {
+    if (typeof row.isActive === 'boolean') {
+      isActiveValue = row.isActive;
+    } else if (typeof row.isActive === 'string') {
+      const lowerValue = row.isActive.toLowerCase().trim();
+      isActiveValue = lowerValue === 'true' || 
+                     lowerValue === '1' || 
+                     lowerValue === 'yes' || 
+                     lowerValue === 'active' || 
+                     lowerValue === 'on';
+    } else if (typeof row.isActive === 'number') {
+      isActiveValue = row.isActive !== 0;
+    } else {
+      isActiveValue = Boolean(row.isActive);
+    }
+  }
+  
+  console.log(`Converted isActive value:`, isActiveValue);
+  
+  const stageData = {
+    taskId: row.taskId,
+    name: row.name,
+    description: row.description || null,
+    category: row.category || null,
+    isActive: isActiveValue,
+  };
+  
+  console.log(`Final stage data:`, JSON.stringify(stageData, null, 2));
+  
+  if (shouldReplace) {
+    // 替换模式：先删除现有记录，再创建新记录
+    await prisma.stage.deleteMany({
+      where: { taskId: row.taskId }
+    });
+    console.log(`🔄 Existing stage with taskId ${row.taskId} deleted for replacement`);
+  }
+  
+  await prisma.stage.create({
+    data: stageData,
+  });
+  
+  console.log(`✅ Stage ${row.taskId} ${shouldReplace ? 'replaced' : 'imported'} successfully`);
 }
 
 export default router;

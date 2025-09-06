@@ -42,38 +42,6 @@ async function main() {
       role: 'LEVEL1' as Role, // Level 1 Admin - Full Access
       position: 'Associate Partner',
     },
-    {
-      employeeId: 'PSEC_102',
-      email: 'office@prmkit.com',
-      password: userPassword,
-      name: 'Sarah Office',
-      role: 'LEVEL1' as Role, // Level 1 Admin - Full Access
-      position: 'Office Administrator',
-    },
-    {
-      employeeId: 'PSEC_103',
-      email: 'pm@prmkit.com',
-      password: userPassword,
-      name: 'Mike PM',
-      role: 'LEVEL2' as Role, // Level 2 Manager - Time Sheets
-      position: 'Project Manager',
-    },
-    {
-      employeeId: 'PSEC_104',
-      email: 'arch@prmkit.com',
-      password: userPassword,
-      name: 'Lisa Arch',
-      role: 'LEVEL3' as Role, // Level 3 Worker - Time Sheets
-      position: 'Senior Architect',
-    },
-    {
-      employeeId: 'PSEC_105',
-      email: 'junior@prmkit.com',
-      password: userPassword,
-      name: 'Tom Junior',
-      role: 'LEVEL3' as Role, // Level 3 Worker - Time Sheets
-      position: 'Junior Architect',
-    },
   ];
 
   // 批量创建示例员工（使用upsert）
@@ -217,27 +185,6 @@ async function main() {
       projectCode: 'OA',
       name: 'Office Admin',
       description: 'Admin Work',
-      startDate: new Date(),
-      status: ProjectStatus.ACTIVE,
-    },
-    {
-      projectCode: 'PROJ001',
-      name: 'Sample Residential Project',
-      description: 'A sample residential development project',
-      startDate: new Date(),
-      status: ProjectStatus.ACTIVE,
-    },
-    {
-      projectCode: 'PROJ002', 
-      name: 'Commercial Office Building',
-      description: 'A commercial office building project',
-      startDate: new Date(),
-      status: ProjectStatus.ACTIVE,
-    },
-    {
-      projectCode: 'PROJ003',
-      name: 'Mixed Use Development',
-      description: 'A mixed use residential and commercial development',
       startDate: new Date(),
       status: ProjectStatus.ACTIVE,
     },

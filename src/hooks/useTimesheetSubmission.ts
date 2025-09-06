@@ -11,6 +11,8 @@ interface UseTimesheetSubmissionProps {
   projects: Project[];
   stages: Stage[];
   selectedDate: Dayjs;
+  isNewMode?: boolean; // 新增：是否为新建模式
+  onSuccess?: () => void;
 }
 
 export const useTimesheetSubmission = ({
@@ -18,6 +20,8 @@ export const useTimesheetSubmission = ({
   projects,
   stages,
   selectedDate,
+  isNewMode = false, // 新增：默认为编辑模式
+  onSuccess,
 }: UseTimesheetSubmissionProps) => {
   const navigate = useNavigate();
   const { message } = App.useApp();
@@ -87,38 +91,42 @@ export const useTimesheetSubmission = ({
           projectId: entry.projectId,
           stageId: entry.stageId || undefined,
           date: selectedDate.format('YYYY-MM-DD'),
-          startTime: null, // 新版本不使用开始时间
-          endTime: null,   // 新版本不使用结束时间
           hours: entry.hours || 0,
           description: entry.description || '',
         };
       });
       
-      // 先删除当天的所有记录，然后批量创建新记录
-      // 这样可以避免重复条目的问题
       const dateStr = selectedDate.format('YYYY-MM-DD');
       
       try {
-        // 获取当天现有记录
-        const existingResponse = await timesheetAPI.getList({ 
-          startDate: dateStr, 
-          endDate: dateStr 
-        });
-        
-        // 删除现有记录（使用Promise.all并行删除提高效率）
-        if (existingResponse.timesheets && existingResponse.timesheets.length > 0) {
-          const deletePromises = existingResponse.timesheets
-            .filter(timesheet => timesheet.id)
-            .map(timesheet => timesheetAPI.delete(timesheet.id));
+        if (isNewMode) {
+          // 新增模式：只创建新条目，不删除现有记录
+          const createPromises = timesheetDataList.map(timesheetData => 
+            timesheetAPI.create(timesheetData)
+          );
+          await Promise.all(createPromises);
+        } else {
+          // 编辑模式：先删除当天现有记录，再创建新记录
+          const existingResponse = await timesheetAPI.getList({ 
+            startDate: dateStr, 
+            endDate: dateStr 
+          });
           
-          await Promise.all(deletePromises);
+          // 删除现有记录（使用Promise.all并行删除提高效率）
+          if (existingResponse.timesheets && existingResponse.timesheets.length > 0) {
+            const deletePromises = existingResponse.timesheets
+              .filter(timesheet => timesheet.id)
+              .map(timesheet => timesheetAPI.delete(timesheet.id));
+            
+            await Promise.all(deletePromises);
+          }
+          
+          // 批量创建新记录（使用Promise.all并行创建）
+          const createPromises = timesheetDataList.map(timesheetData => 
+            timesheetAPI.create(timesheetData)
+          );
+          await Promise.all(createPromises);
         }
-        
-        // 批量创建新记录（使用Promise.all并行创建）
-        const createPromises = timesheetDataList.map(timesheetData => 
-          timesheetAPI.create(timesheetData)
-        );
-        await Promise.all(createPromises);
         
       } catch (error) {
         console.error('保存记录时出错:', error);
@@ -143,6 +151,7 @@ export const useTimesheetSubmission = ({
     projects,
     stages,
     selectedDate,
+    isNewMode,
     navigate,
     message,
   ]);
@@ -196,8 +205,6 @@ export const useTimesheetSubmission = ({
           projectId: entry.projectId,
           stageId: entry.stageId || undefined,
           date: selectedDate.format('YYYY-MM-DD'),
-          startTime: null, // 新版本不使用开始时间
-          endTime: null,   // 新版本不使用结束时间
           hours: entry.hours,
           description: entry.description || '',
         };
@@ -206,8 +213,16 @@ export const useTimesheetSubmission = ({
       const dateStr = selectedDate.format('YYYY-MM-DD');
       // 准备覆盖日期记录
       
-      // 使用overwriteDay方法一次性处理所有记录
-      await timesheetAPI.overwriteDay(dateStr, timesheetDataList);
+      if (isNewMode) {
+        // 新增模式：只创建新条目，不删除现有记录
+        const createPromises = timesheetDataList.map(timesheetData => 
+          timesheetAPI.create(timesheetData)
+        );
+        await Promise.all(createPromises);
+      } else {
+        // 编辑模式：使用overwriteDay方法处理记录（先删除再创建）
+        await timesheetAPI.overwriteDay(dateStr, timesheetDataList);
+      }
       
       // 记录创建完成，开始更新状态
       

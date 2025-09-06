@@ -226,18 +226,34 @@ router.delete('/:id', authenticateToken, requireLevel1Admin, async (req: Authent
     // 检查阶段是否存在
     const existingStage = await prisma.stage.findUnique({
       where: { id },
+      include: {
+        _count: {
+          select: {
+            timesheets: true,
+          },
+        },
+      },
     });
     
     if (!existingStage) {
       return res.status(404).json({ error: 'Stage not found' });
     }
     
-    // 软删除：设置为非激活状态
-    await prisma.stage.update({
+    // 检查是否有关联的工时记录
+    if (existingStage._count.timesheets > 0) {
+      // 如果有关联数据，使用软删除
+      await prisma.stage.update({
+        where: { id },
+        data: {
+          isActive: false,
+        },
+      });
+      return res.json({ message: 'Stage deactivated successfully (has associated timesheets)' });
+    }
+    
+    // 如果没有关联数据，执行硬删除
+    await prisma.stage.delete({
       where: { id },
-      data: {
-        isActive: false,
-      },
     });
     
     res.json({ message: 'Stage deleted successfully' });

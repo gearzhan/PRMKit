@@ -47,8 +47,6 @@ const { Search } = Input;
 interface TimesheetRecord {
   id: string;
   date: string;
-  startTime: string;
-  endTime: string;
   hours: number;
   status: 'DRAFT' | 'SUBMITTED' | 'APPROVED';
   project: {
@@ -718,7 +716,7 @@ const Timesheets: React.FC = () => {
                 <h4 className="font-medium mb-3">Detailed Records for {dayjs(record.date).format('MMM DD, YYYY')}</h4>
                 <div className="space-y-2">
                   {record.records
-                    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+                    .sort((a, b) => a.project.name.localeCompare(b.project.name))
                     .map((timesheet, index) => (
                     <div key={timesheet.id} className="bg-white p-3 rounded border text-sm">
                       <div className="flex justify-between items-start">
@@ -733,10 +731,7 @@ const Timesheets: React.FC = () => {
                           )}
                         </div>
                         <div className="text-right">
-                          <div className="font-medium">
-                            {timesheet.startTime.substring(11, 16)} - {timesheet.endTime.substring(11, 16)}
-                          </div>
-                          <div className="text-blue-600">{timesheet.hours}h</div>
+                          <div className="text-blue-600 font-medium">{timesheet.hours}h</div>
                           <Tag color={statusConfig[timesheet.status].color} className="text-xs mt-1">
                             {statusConfig[timesheet.status].text}
                           </Tag>

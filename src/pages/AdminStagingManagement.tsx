@@ -369,6 +369,7 @@ const AdminStagingManagement: React.FC = () => {
           onCancel={closeModal}
           width={600}
           destroyOnHidden
+          forceRender
         >
           <Form
             form={form}
