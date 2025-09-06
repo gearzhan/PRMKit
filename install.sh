@@ -195,26 +195,34 @@ init_database() {
         # 生成Prisma客户端
         npx prisma generate || error_exit "Prisma客户端生成失败"
         
-        # 生产环境使用migrate deploy
-        log "执行数据库迁移..."
-        npx prisma migrate deploy || error_exit "数据库迁移失败"
+        # 检查是否有迁移文件存在
+        if [ -d "prisma/migrations" ] && [ "$(ls -A prisma/migrations 2>/dev/null)" ]; then
+            # 有迁移文件，使用migrate deploy
+            log "执行数据库迁移..."
+            npx prisma migrate deploy || error_exit "数据库迁移失败"
+        else
+            # 没有迁移文件，跳过迁移步骤（将在后续检查中处理）
+            log "未发现迁移文件，将在后续步骤中处理..."
+        fi
         
         # 检查是否为首次安装（通过检查数据库中是否有用户表以及数据）
         log "检查是否为首次安装..."
         
-        # 首先检查User表是否存在
-        if npx prisma db execute --stdin <<< "SELECT name FROM sqlite_master WHERE type='table' AND name='User';" 2>/dev/null | grep -q "User"; then
+        # 首先检查employees表是否存在
+        if npx prisma db execute --stdin <<< "SELECT name FROM sqlite_master WHERE type='table' AND name='employees';" 2>/dev/null | grep -q "employees"; then
             # 表存在，检查是否有数据
-            user_count=$(npx prisma db execute --stdin <<< "SELECT COUNT(*) as count FROM User;" 2>/dev/null | tail -n 1 | tr -d '\r\n ')
-            if [ "$user_count" = "0" ] || [ -z "$user_count" ]; then
-                log "检测到User表存在但无数据，执行种子数据初始化..."
+            employee_count=$(npx prisma db execute --stdin <<< "SELECT COUNT(*) as count FROM employees;" 2>/dev/null | tail -n 1 | tr -d '\r\n ')
+            if [ "$employee_count" = "0" ] || [ -z "$employee_count" ]; then
+                log "检测到employees表存在但无数据，执行种子数据初始化..."
                 npm run db:seed || error_exit "种子数据初始化失败"
             else
-                log "检测到已有用户数据($user_count条记录)，跳过种子数据初始化"
+                log "检测到已有员工数据($employee_count条记录)，跳过种子数据初始化"
             fi
         else
-            # 表不存在，说明是首次安装
-            log "检测到User表不存在，这是首次安装，执行种子数据初始化..."
+            # 表不存在，说明是首次安装，需要先生成初始迁移
+            log "检测到employees表不存在，这是首次安装，生成初始迁移..."
+            npx prisma migrate dev --name init || error_exit "初始迁移生成失败"
+            log "执行种子数据初始化..."
             npm run db:seed || error_exit "种子数据初始化失败"
         fi
     fi
