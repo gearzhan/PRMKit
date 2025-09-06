@@ -21,7 +21,7 @@
     "dev": "concurrently \"npm run client:dev\" \"npm run server:dev\"",
     "dev:build": "npm run build && npm run start:dev",
     "postbuild": "echo \"✅ Build completed successfully\"",
-    "prestart": "npm run db:migrate:deploy",
+    "prestart": "npm run db:push",
     "health": "node scripts/health-check.js",
     "health:monitor": "node scripts/health-check.js --monitor",
     "pm2:start": "pm2 start ecosystem.config.js",

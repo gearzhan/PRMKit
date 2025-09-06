@@ -1,4 +1,0 @@
-taskId,name,description,category,isActive
-STAGE-001,Planning,Initial project planning phase,Planning,true
-STAGE-002,Development,Software development phase,Development,true
-STAGE-003,Testing,Quality assurance testing,Testing,false
