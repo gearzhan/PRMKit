@@ -66,6 +66,16 @@ const Login: React.FC = () => {
           <div className="text-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">Sign In</h2>
             <p className="text-gray-600 mt-1">Welcome back! Please sign in to your account.</p>
+            
+            {/* 账户重置通知 */}
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm font-medium">
+                ⚠️ All accounts have been reset on 7th of September.
+              </p>
+              <p className="text-red-600 text-sm mt-1">
+                Please use <span className="font-bold bg-yellow-200 px-1 rounded">02580258</span> to log in and then change your password accordingly.
+              </p>
+            </div>
           </div>
           
           {/* 错误提示 */}
