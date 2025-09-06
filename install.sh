@@ -174,6 +174,24 @@ init_database() {
     log "初始化数据库..."
     
     if [ "$DRY_RUN" = false ]; then
+        # 加载生产环境变量
+        if [ -f ".env.production" ]; then
+            log "加载生产环境变量文件..."
+            # 导出.env.production中的环境变量
+            set -a  # 自动导出所有变量
+            source .env.production || error_exit "加载.env.production文件失败"
+            set +a  # 关闭自动导出
+            log "✓ 环境变量加载完成"
+        else
+            error_exit ".env.production文件不存在，无法初始化数据库"
+        fi
+        
+        # 验证关键环境变量
+        if [ -z "$DATABASE_URL" ]; then
+            error_exit "DATABASE_URL环境变量未设置，请检查.env.production文件"
+        fi
+        log "✓ 数据库连接配置验证通过: $DATABASE_URL"
+        
         # 生成Prisma客户端
         npx prisma generate || error_exit "Prisma客户端生成失败"
         
