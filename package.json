@@ -21,7 +21,7 @@
     "dev": "concurrently \"npm run client:dev\" \"npm run server:dev\"",
     "dev:build": "npm run build && npm run start:dev",
     "postbuild": "echo \"✅ Build completed successfully\"",
-    "prestart": "npm run db:migrate:deploy",
+    "prestart": "dotenv -e .env.production -- npm run db:migrate:deploy",
     "health": "node scripts/health-check.js",
     "health:monitor": "node scripts/health-check.js --monitor",
     "pm2:start": "pm2 start ecosystem.config.js",
@@ -31,7 +31,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate:dev": "prisma migrate dev",
-    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:deploy": "dotenv -e .env.production -- prisma migrate deploy",
     "db:migrate:reset": "prisma migrate reset",
     "db:migrate:status": "prisma migrate status",
     "db:seed": "tsx prisma/seed.ts",
@@ -74,7 +74,6 @@
     "xlsx": "^0.18.5",
     "zustand": "^5.0.3"
   },
-
   "devDependencies": {
     "@eslint/js": "^9.25.0",
     "@types/cors": "^2.8.19",
@@ -87,6 +86,7 @@
     "autoprefixer": "^10.4.21",
     "babel-plugin-react-dev-locator": "^1.0.0",
     "concurrently": "^9.2.0",
+    "dotenv-cli": "^10.0.0",
     "eslint": "^9.25.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
