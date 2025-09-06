@@ -199,13 +199,23 @@ init_database() {
         log "执行数据库迁移..."
         npx prisma migrate deploy || error_exit "数据库迁移失败"
         
-        # 检查是否为首次安装（通过检查数据库中是否有用户表数据）
+        # 检查是否为首次安装（通过检查数据库中是否有用户表以及数据）
         log "检查是否为首次安装..."
-        if npx prisma db execute --stdin <<< "SELECT COUNT(*) FROM User;" 2>/dev/null | grep -q "0"; then
-            log "检测到首次安装，执行种子数据初始化..."
-            npm run db:seed || error_exit "种子数据初始化失败"
+        
+        # 首先检查User表是否存在
+        if npx prisma db execute --stdin <<< "SELECT name FROM sqlite_master WHERE type='table' AND name='User';" 2>/dev/null | grep -q "User"; then
+            # 表存在，检查是否有数据
+            user_count=$(npx prisma db execute --stdin <<< "SELECT COUNT(*) as count FROM User;" 2>/dev/null | tail -n 1 | tr -d '\r\n ')
+            if [ "$user_count" = "0" ] || [ -z "$user_count" ]; then
+                log "检测到User表存在但无数据，执行种子数据初始化..."
+                npm run db:seed || error_exit "种子数据初始化失败"
+            else
+                log "检测到已有用户数据($user_count条记录)，跳过种子数据初始化"
+            fi
         else
-            log "检测到已有数据，跳过种子数据初始化"
+            # 表不存在，说明是首次安装
+            log "检测到User表不存在，这是首次安装，执行种子数据初始化..."
+            npm run db:seed || error_exit "种子数据初始化失败"
         fi
     fi
     
