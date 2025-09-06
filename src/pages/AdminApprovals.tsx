@@ -22,6 +22,7 @@ import {
   Divider,
   Empty,
   Popconfirm,
+  Pagination,
 } from 'antd';
 import PageLayout from '@/components/PageLayout';
 import {
@@ -41,6 +42,23 @@ import { useAuthStore } from '@/stores/authStore';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
+
+// 添加CSS样式支持
+const styles = `
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+`;
+
+// 注入样式
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = styles;
+  document.head.appendChild(styleSheet);
+}
 
 // 配置dayjs插件
 dayjs.extend(utc);
@@ -162,10 +180,10 @@ const AdminApprovals: React.FC = () => {
   const [sortBy, setSortBy] = useState('submittedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
-  // 分页状态
+  // 分页状态 - 默认每页显示100条
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
-    limit: 20,
+    limit: 100,
     total: 0,
     totalPages: 0,
   });
@@ -177,7 +195,7 @@ const AdminApprovals: React.FC = () => {
   const [projectOptions, setProjectOptions] = useState<Array<{ id: string; name: string; projectCode: string }>>([]);
   const [userOptions, setUserOptions] = useState<Array<{ id: string; name: string; employeeId: string }>>([]);
   
-  // 员工卡片展开/收起状态管理
+  // 员工卡片展开/收起状态管理 - 默认收起状态
   const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set());
 
   // 切换员工卡片展开/收起状态
@@ -610,13 +628,14 @@ const AdminApprovals: React.FC = () => {
                      </span>
                    </div>
                   
-                  <div className="space-y-3">
+                  {/* 员工卡片网格布局 */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     {dailyGroup.employeeGroups.map((employeeGroup) => {
                       const isExpanded = expandedEmployees.has(employeeGroup.employeeId);
                       return (
-                      <div key={employeeGroup.employeeId} className="bg-gray-50 rounded-lg p-4">
+                      <div key={employeeGroup.employeeId} className="bg-gray-50 rounded-lg p-3">
                         <div 
-                          className="flex items-center justify-between mb-3 cursor-pointer hover:bg-gray-100 rounded-lg p-2 -m-2 transition-colors duration-200"
+                          className="flex items-center justify-between mb-2 cursor-pointer hover:bg-gray-100 rounded-lg p-2 -m-2 transition-colors duration-200"
                           onClick={() => toggleEmployeeExpanded(employeeGroup.employeeId)}
                         >
                            <div className="flex items-center space-x-3">
@@ -694,58 +713,59 @@ const AdminApprovals: React.FC = () => {
                         <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
                           isExpanded ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
                         }`}>
-                          <div className="space-y-2 pt-2">
-                            {employeeGroup.approvals.map((approval) => (
-                              <div key={approval.id} className="bg-white rounded border p-3">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center space-x-4 text-sm">
-                                      <span className="font-medium text-blue-600">
-                                        {approval.timesheet.project.name}
-                                      </span>
-                                      <span className="text-gray-600">
-                                        {dayjs(approval.timesheet.date).format('YYYY-MM-DD')}
-                                      </span>
-                                      <span className="font-medium text-gray-900">
-                                        {approval.timesheet.hours.toFixed(1)}h
-                                      </span>
+                          <div className="pt-2">
+                            {/* 垂直列表布局 */}
+                            <div className="space-y-2">
+                              {employeeGroup.approvals.map((approval) => (
+                                <div key={approval.id} className="bg-white rounded border p-3 hover:shadow-sm transition-shadow">
+                                  <div className="flex items-start justify-between">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center space-x-3 text-sm mb-2">
+                                        <span className="font-medium text-blue-600 truncate">
+                                          {approval.timesheet.project.name}
+                                        </span>
+                                        <span className="font-medium text-gray-900 flex-shrink-0">
+                                          {approval.timesheet.hours.toFixed(1)}h
+                                        </span>
+                                      </div>
+                                      {approval.timesheet.description && (
+                                        <div className="text-sm text-gray-600 mb-1 line-clamp-2">
+                                          {approval.timesheet.description}
+                                        </div>
+                                      )}
+                                      {approval.timesheet.stage && (
+                                        <div className="text-xs text-gray-500">
+                                          Stage: {approval.timesheet.stage.name}
+                                        </div>
+                                      )}
                                     </div>
-                                    {approval.timesheet.description && (
-                                      <div className="text-sm text-gray-600 mt-1">
-                                        {approval.timesheet.description}
-                                      </div>
-                                    )}
-                                    {approval.timesheet.stage && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        Stage: {approval.timesheet.stage.name}
-                                      </div>
-                                    )}
-                                  </div>
-                                  
-                                  <div className="flex items-center space-x-2">
-                                    {statusGroup.status === 'PENDING' && (
-                                      <Checkbox
-                                        checked={selectedRowKeys.includes(approval.id)}
-                                        onChange={(e) => {
-                                          if (e.target.checked) {
-                                            setSelectedRowKeys([...selectedRowKeys, approval.id]);
-                                          } else {
-                                            setSelectedRowKeys(selectedRowKeys.filter(key => key !== approval.id));
-                                          }
-                                        }}
-                                      />
-                                    )}
-                                    <Button
-                                      type="link"
-                                      size="small"
-                                      onClick={() => viewDetail(approval)}
-                                    >
-                                      Details
-                                    </Button>
+                                    
+                                    <div className="flex items-center space-x-2 ml-2">
+                                      {statusGroup.status === 'PENDING' && (
+                                        <Checkbox
+                                          checked={selectedRowKeys.includes(approval.id)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setSelectedRowKeys([...selectedRowKeys, approval.id]);
+                                            } else {
+                                              setSelectedRowKeys(selectedRowKeys.filter(key => key !== approval.id));
+                                            }
+                                          }}
+                                        />
+                                      )}
+                                      <Button
+                                        type="link"
+                                        size="small"
+                                        onClick={() => viewDetail(approval)}
+                                        className="p-0"
+                                      >
+                                        <EyeOutlined />
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1068,10 +1088,9 @@ const AdminApprovals: React.FC = () => {
               <Button 
                 onClick={resetFilters}
                 size="middle"
-                className="hover:bg-blue-50 hover:border-blue-300"
-              >
-                This Week / Reset
-              </Button>
+                className="font-bold hover:bg-blue-50 hover:border-blue-300"
+                style={{ backgroundColor: '#B7DDB0' }}
+              >This Week / Reset</Button>
               <Button 
                 onClick={() => {
                   const startOfLastWeek = dayjs().subtract(1, 'week').startOf('week');
@@ -1080,9 +1099,7 @@ const AdminApprovals: React.FC = () => {
                 }}
                 size="middle"
                 className="hover:bg-blue-50 hover:border-blue-300"
-              >
-                Last Week
-              </Button>
+              >Last Week</Button>
               <Button 
                 onClick={() => {
                   const startOfMonth = dayjs().startOf('month');
@@ -1091,9 +1108,16 @@ const AdminApprovals: React.FC = () => {
                 }}
                 size="middle"
                 className="hover:bg-blue-50 hover:border-blue-300"
-              >
-                This Month
-              </Button>
+              >This Month</Button>
+              <Button 
+                onClick={() => {
+                  const startOfLastMonth = dayjs().subtract(1, 'month').startOf('month');
+                  const endOfLastMonth = dayjs().subtract(1, 'month').endOf('month');
+                  setDateRange([startOfLastMonth, endOfLastMonth]);
+                }}
+                size="middle"
+                className="hover:bg-blue-50 hover:border-blue-300"
+              >Last Month</Button>
             </div>
             
             {/* 主要操作按钮 */}
@@ -1130,7 +1154,31 @@ const AdminApprovals: React.FC = () => {
                       <p className="mt-2 text-gray-600">Loading approvals...</p>
                     </div>
                   ) : (
-                    renderGroupedApprovals()
+                    <>
+                      {renderGroupedApprovals()}
+                      {/* 分页组件 */}
+                      {pagination.total > 0 && (
+                        <div className="flex justify-center mt-6">
+                          <Pagination
+                            current={pagination.page}
+                            total={pagination.total}
+                            pageSize={pagination.limit}
+                            showSizeChanger
+                            showQuickJumper
+                            showTotal={(total, range) => 
+                              `${range[0]}-${range[1]} of ${total} items`
+                            }
+                            pageSizeOptions={['100', '200']}
+                            onChange={(page, pageSize) => {
+                              setPagination(prev => ({ ...prev, page, limit: pageSize || prev.limit }));
+                            }}
+                            onShowSizeChange={(current, size) => {
+                              setPagination(prev => ({ ...prev, page: 1, limit: size }));
+                            }}
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ),
@@ -1146,7 +1194,31 @@ const AdminApprovals: React.FC = () => {
                       <p className="mt-2 text-gray-600">Loading history...</p>
                     </div>
                   ) : (
-                    renderGroupedApprovals()
+                    <>
+                      {renderGroupedApprovals()}
+                      {/* 分页组件 */}
+                      {pagination.total > 0 && (
+                        <div className="flex justify-center mt-6">
+                          <Pagination
+                            current={pagination.page}
+                            total={pagination.total}
+                            pageSize={pagination.limit}
+                            showSizeChanger
+                            showQuickJumper
+                            showTotal={(total, range) => 
+                              `${range[0]}-${range[1]} of ${total} items`
+                            }
+                            pageSizeOptions={['100', '200']}
+                            onChange={(page, pageSize) => {
+                              setPagination(prev => ({ ...prev, page, limit: pageSize || prev.limit }));
+                            }}
+                            onShowSizeChange={(current, size) => {
+                              setPagination(prev => ({ ...prev, page: 1, limit: size }));
+                            }}
+                          />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ),
